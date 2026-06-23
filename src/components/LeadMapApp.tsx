@@ -94,6 +94,8 @@ type GenerateLandingResponse = {
   };
   error?: string;
   warning?: string;
+  diagnosticCode?: string;
+  model?: string;
   source?: "openai" | "fallback";
 };
 
@@ -716,7 +718,9 @@ export function LeadMapApp() {
           },
         }),
       });
-      const payload = (await response.json()) as GenerateLandingResponse;
+      const payload = (await response.json().catch(() => ({
+        error: "A resposta da IA veio em um formato inválido. Tente novamente.",
+      }))) as GenerateLandingResponse;
 
       if (!response.ok || !payload.draft) {
         throw new Error(payload.error ?? "Não foi possível gerar a landing page com IA.");
