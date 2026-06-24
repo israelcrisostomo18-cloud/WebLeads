@@ -132,6 +132,15 @@ function leadKey(lead: BusinessLead) {
   return `${lead.osmType}-${lead.osmId}`;
 }
 
+function siteBuilderKey(lead: BusinessLead) {
+  return `${lead.source ?? "osm"}-${lead.id ?? leadKey(lead)}`
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 120) || leadKey(lead);
+}
+
 function variationToDraft(variation: LandingVariation, lead: BusinessLead): SiteDraft {
   return {
     templateType: variation.type,
@@ -695,7 +704,7 @@ export function LeadMapApp() {
   }
 
   function openSiteBuilder(lead: BusinessLead) {
-    const businessId = encodeURIComponent(lead.id ?? leadKey(lead));
+    const businessId = siteBuilderKey(lead);
     sessionStorage.setItem(`site-builder:${businessId}`, JSON.stringify(lead));
     router.push(`/site-builder/${businessId}`);
   }

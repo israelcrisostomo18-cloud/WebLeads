@@ -172,14 +172,46 @@ O valor para ativar e personalizar esse site é R$${price || "___"}.
 Posso finalizar para você?`;
 }
 
-export function SiteBuilderApp({ businessId }: { businessId: string }) {
-  const initialLead = useMemo(() => {
-    if (typeof window === "undefined") {
-      return null;
+function readStoredLead(businessId: string) {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const decodedBusinessId = (() => {
+    try {
+      return decodeURIComponent(businessId);
+    } catch {
+      return businessId;
+    }
+  })();
+  const keys = Array.from(
+    new Set([
+      businessId,
+      decodedBusinessId,
+      encodeURIComponent(businessId),
+    ]),
+  ).map((key) => `site-builder:${key}`);
+
+  for (const key of keys) {
+    const stored = sessionStorage.getItem(key);
+
+    if (!stored) {
+      continue;
     }
 
-    const stored = sessionStorage.getItem(`site-builder:${businessId}`);
-    return stored ? (JSON.parse(stored) as BusinessLead) : null;
+    try {
+      return JSON.parse(stored) as BusinessLead;
+    } catch {
+      sessionStorage.removeItem(key);
+    }
+  }
+
+  return null;
+}
+
+export function SiteBuilderApp({ businessId }: { businessId: string }) {
+  const initialLead = useMemo(() => {
+    return readStoredLead(businessId);
   }, [businessId]);
   const [lead] = useState<BusinessLead | null>(initialLead);
   const [draft, setDraft] = useState<SiteBuilderDraft | null>(() => (initialLead ? draftFromLead(initialLead) : null));
@@ -359,7 +391,7 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
         <div className="premium-panel max-w-lg rounded-2xl p-8">
           <h1 className="text-2xl font-black text-white">Lead não encontrado</h1>
           <p className="mt-3 text-[#95a7bd]">Volte ao mapa, escolha uma empresa e clique em Gerar Site.</p>
-          <Link className="mt-6 inline-flex h-11 items-center justify-center rounded-lg bg-[#6ee7ff] px-4 font-bold text-[#06101d]" href="/">
+          <Link className="mt-6 inline-flex h-11 items-center justify-center rounded-lg bg-[#6ee7ff] px-4 font-bold text-[#06101d]" href="/mapa">
             Voltar ao mapa
           </Link>
         </div>
@@ -374,7 +406,7 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
       <header className="sticky top-0 z-30 border-b border-white/10 bg-[#070a12]/90 px-4 py-3 backdrop-blur-xl">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Link className="grid size-10 place-items-center rounded-lg border border-[#6ee7ff]/20 bg-white/5 text-[#dceeff]" href="/">
+            <Link className="grid size-10 place-items-center rounded-lg border border-[#6ee7ff]/20 bg-white/5 text-[#dceeff]" href="/mapa">
               <ArrowLeft className="size-4" />
             </Link>
             <div>

@@ -82,7 +82,18 @@ export default async function PublicSitePage({ params }: PageProps) {
   const { slug } = await params;
   const site = await getSite(slug);
 
-  if (!site || isExpired(site) || site.isPublic === false) {
+  if (!site) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-[#070a12] p-6 text-center text-white">
+        <div className="max-w-lg rounded-2xl border border-[#6ee7ff]/20 bg-white/5 p-8 shadow-2xl">
+          <h1 className="text-2xl font-black">Landing page não encontrada.</h1>
+          <p className="mt-3 text-[#95a7bd]">Verifique o link ou gere uma nova página para este lead.</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (isExpired(site) || site.isPublic === false) {
     return (
       <main className="grid min-h-screen place-items-center bg-[#070a12] p-6 text-center text-white">
         <div className="max-w-lg rounded-2xl border border-[#6ee7ff]/20 bg-white/5 p-8 shadow-2xl">

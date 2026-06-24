@@ -28,6 +28,36 @@ export type LandingRenderData = {
   whatsappUrl: string | null;
 };
 
+function normalizeLandingRenderData(data: LandingRenderData): LandingRenderData {
+  const primaryColor = /^#[0-9a-f]{6}$/i.test(data.primaryColor ?? "") ? data.primaryColor : "#10243f";
+  const accentColor = /^#[0-9a-f]{6}$/i.test(data.accentColor ?? "") ? data.accentColor : "#21d4fd";
+
+  return {
+    ...data,
+    businessName: data.businessName || "Empresa local",
+    niche: data.niche || "negócio local",
+    city: data.city || "sua cidade",
+    title: data.title || `${data.businessName || "Empresa local"} no digital`,
+    subtitle: data.subtitle || "Uma página profissional para apresentar serviços e facilitar o contato pelo WhatsApp.",
+    description: data.description || "Atendimento local com informações claras, contato direto e presença online profissional.",
+    services: Array.isArray(data.services) && data.services.length ? data.services : ["Atendimento local", "Orçamento pelo WhatsApp", "Serviços personalizados"],
+    benefits: Array.isArray(data.benefits) && data.benefits.length ? data.benefits : ["Contato rápido", "Informações claras", "Experiência simples no celular"],
+    ctaText: data.ctaText || "Chamar no WhatsApp",
+    ctaFinal: data.ctaFinal || "Fale agora e solicite atendimento.",
+    address: data.address || "Endereço a confirmar",
+    latitude: Number.isFinite(Number(data.latitude)) ? Number(data.latitude) : 0,
+    longitude: Number.isFinite(Number(data.longitude)) ? Number(data.longitude) : 0,
+    primaryColor,
+    accentColor,
+    visualStyle: data.visualStyle || "claro",
+    buttonStyle: data.buttonStyle || "whatsapp",
+    showMap: data.showMap ?? true,
+    showAbout: data.showAbout ?? true,
+    showBenefits: data.showBenefits ?? true,
+    whatsappUrl: data.whatsappUrl ?? null,
+  };
+}
+
 function shellClass(style: LandingVisualStyle) {
   if (style === "escuro") return "bg-[#0f172a] text-white";
   if (style === "minimalista") return "bg-white text-[#171a16]";
@@ -37,6 +67,7 @@ function shellClass(style: LandingVisualStyle) {
 }
 
 export function LandingHero({ data }: { data: LandingRenderData }) {
+  data = normalizeLandingRenderData(data);
   const isDark = data.visualStyle === "escuro";
 
   return (
@@ -87,6 +118,8 @@ export function LandingHero({ data }: { data: LandingRenderData }) {
 }
 
 export function TrustSection({ data }: { data: LandingRenderData }) {
+  data = normalizeLandingRenderData(data);
+
   return (
     <section className="px-5 py-8 md:px-10">
       <div className="mx-auto grid max-w-6xl gap-3 sm:grid-cols-3">
@@ -102,6 +135,8 @@ export function TrustSection({ data }: { data: LandingRenderData }) {
 }
 
 export function ServicesSection({ data }: { data: LandingRenderData }) {
+  data = normalizeLandingRenderData(data);
+
   return (
     <section className="px-5 py-10 md:px-10">
       <div className="mx-auto max-w-6xl">
@@ -120,6 +155,8 @@ export function ServicesSection({ data }: { data: LandingRenderData }) {
 }
 
 export function BenefitsSection({ data }: { data: LandingRenderData }) {
+  data = normalizeLandingRenderData(data);
+
   if (!data.showBenefits) return null;
 
   return (
@@ -137,6 +174,8 @@ export function BenefitsSection({ data }: { data: LandingRenderData }) {
 }
 
 export function LocationSection({ data }: { data: LandingRenderData }) {
+  data = normalizeLandingRenderData(data);
+
   if (!data.showMap) return null;
 
   const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${data.longitude - 0.006}%2C${data.latitude - 0.006}%2C${data.longitude + 0.006}%2C${data.latitude + 0.006}&layer=mapnik&marker=${data.latitude}%2C${data.longitude}`;
@@ -162,6 +201,8 @@ export function LocationSection({ data }: { data: LandingRenderData }) {
 }
 
 export function FinalCTA({ data }: { data: LandingRenderData }) {
+  data = normalizeLandingRenderData(data);
+
   return (
     <section className="px-5 py-12 text-center md:px-10" style={{ backgroundColor: data.accentColor }}>
       <h2 className="mx-auto max-w-3xl text-3xl font-black text-[#1d1a12]">{data.ctaFinal}</h2>
@@ -176,6 +217,8 @@ export function FinalCTA({ data }: { data: LandingRenderData }) {
 }
 
 export function LandingFooter({ data }: { data: LandingRenderData }) {
+  data = normalizeLandingRenderData(data);
+
   return (
     <footer className="bg-[#111827] px-5 py-6 text-center text-sm text-white/70">
       <strong className="text-white">{data.businessName}</strong> · {data.niche} em {data.city}

@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!site) {
     return {
-      title: "site não encontrada",
+      title: "Landing page não encontrada",
     };
   }
 
@@ -56,7 +56,7 @@ export default async function PublicLandingPage({ params }: PageProps) {
     return (
       <main className="grid min-h-screen place-items-center bg-[#fbfcf8] p-6 text-center">
         <div>
-          <h1 className="text-2xl font-black">site não encontrada</h1>
+          <h1 className="text-2xl font-black">Landing page não encontrada.</h1>
           <p className="mt-2 text-[#66705f]">Verifique o link ou gere uma nova página para este lead.</p>
         </div>
       </main>

@@ -17,14 +17,30 @@ import { getThemePresetByNiche } from "@/lib/siteThemes/themesByNiche";
 import { sitePalettes } from "@/lib/siteThemes/palettes";
 
 export function GeneratedSiteRenderer({ data }: { data: GeneratedSiteRenderData }) {
-  const preset = getThemePresetByNiche(data.niche);
-  const palette = sitePalettes[data.paletteKey ?? preset.paletteKey];
+  const niche = data.niche || "negócio local";
+  const preset = getThemePresetByNiche(niche);
+  const palette = sitePalettes[data.paletteKey ?? preset.paletteKey] ?? sitePalettes[preset.paletteKey];
   const normalized: GeneratedSiteRenderData = {
     ...data,
-    services: data.services.length ? data.services : getGeneratedServicesByNiche(data.niche),
-    benefits: data.benefits.length ? data.benefits : getGeneratedBenefitsByNiche(data.niche),
-    differentials: data.differentials?.length ? data.differentials : getGeneratedDifferentials(data.niche),
-    faqs: data.faqs?.length ? data.faqs : getGeneratedFAQByNiche(data.niche),
+    businessName: data.businessName || "Empresa local",
+    niche,
+    city: data.city || "sua cidade",
+    title: data.title || `${data.businessName || "Empresa local"} no digital`,
+    subtitle: data.subtitle || "Uma página profissional para apresentar serviços e facilitar o contato pelo WhatsApp.",
+    description: data.description || "Atendimento local com informações claras, contato direto e presença online profissional.",
+    services: data.services?.length ? data.services : getGeneratedServicesByNiche(niche),
+    benefits: data.benefits?.length ? data.benefits : getGeneratedBenefitsByNiche(niche),
+    differentials: data.differentials?.length ? data.differentials : getGeneratedDifferentials(niche),
+    faqs: data.faqs?.length ? data.faqs : getGeneratedFAQByNiche(niche),
+    gallery: data.gallery ?? [],
+    ctaText: data.ctaText || "Chamar no WhatsApp",
+    ctaFinal: data.ctaFinal || "Fale agora e solicite atendimento.",
+    primaryColor: data.primaryColor || palette.primary,
+    accentColor: data.accentColor || palette.accent,
+    showMap: data.showMap ?? true,
+    showAbout: data.showAbout ?? true,
+    showBenefits: data.showBenefits ?? true,
+    showFaq: data.showFaq ?? true,
   };
 
   return (
