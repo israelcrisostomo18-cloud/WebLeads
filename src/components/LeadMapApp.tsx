@@ -132,6 +132,46 @@ function leadKey(lead: BusinessLead) {
   return `${lead.osmType}-${lead.osmId}`;
 }
 
+function isValidCoordinate(lat: unknown, lng: unknown) {
+  const latitude = Number(lat);
+  const longitude = Number(lng);
+
+  return (
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    longitude >= -180 &&
+    longitude <= 180
+  );
+}
+
+function safeReadJson<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch (error) {
+    console.warn("WebLeads storage read failed:", key, error);
+    return fallback;
+  }
+}
+
+function safeWriteJson(key: string, value: unknown) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.warn("WebLeads storage write failed:", key, error);
+  }
+}
+
 function siteBuilderKey(lead: BusinessLead) {
   return `${lead.source ?? "osm"}-${lead.id ?? leadKey(lead)}`
     .normalize("NFD")
@@ -430,33 +470,12 @@ export function LeadMapApp() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [generator, setGenerator] = useState<GeneratorState | null>(null);
   const [siteHistory, setSiteHistory] = useState<SiteHistory>({});
-  const [savedLeads, setSavedLeads] = useState<SavedLead[]>(() => {
-    if (typeof window === "undefined") {
-      return [];
-    }
-
-    try {
-      const raw = localStorage.getItem(SAVED_LEADS_KEY);
-      return raw ? (JSON.parse(raw) as SavedLead[]) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [savedLeads, setSavedLeads] = useState<SavedLead[]>([]);
+  const [storageReady, setStorageReady] = useState(false);
   const [activePanel, setActivePanel] = useState<"results" | "saved">("results");
   const [lastSearchWasLocalCache, setLastSearchWasLocalCache] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
-  const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>(() => {
-    if (typeof window === "undefined") {
-      return [];
-    }
-
-    try {
-      const raw = localStorage.getItem(ASSISTANT_MESSAGES_KEY);
-      return raw ? (JSON.parse(raw) as AssistantMessage[]) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([]);
 
   const state = useMemo(
     () => STATES.find((item) => item.uf === selectedState) ?? STATES[0],
@@ -477,12 +496,26 @@ export function LeadMapApp() {
   );
 
   useEffect(() => {
-    localStorage.setItem(SAVED_LEADS_KEY, JSON.stringify(savedLeads));
-  }, [savedLeads]);
+    setSavedLeads(safeReadJson<SavedLead[]>(SAVED_LEADS_KEY, []));
+    setAssistantMessages(safeReadJson<AssistantMessage[]>(ASSISTANT_MESSAGES_KEY, []));
+    setStorageReady(true);
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem(ASSISTANT_MESSAGES_KEY, JSON.stringify(assistantMessages.slice(-30)));
-  }, [assistantMessages]);
+    if (!storageReady) {
+      return;
+    }
+
+    safeWriteJson(SAVED_LEADS_KEY, savedLeads);
+  }, [savedLeads, storageReady]);
+
+  useEffect(() => {
+    if (!storageReady) {
+      return;
+    }
+
+    safeWriteJson(ASSISTANT_MESSAGES_KEY, assistantMessages.slice(-30));
+  }, [assistantMessages, storageReady]);
 
   const assistantContext = useMemo<AssistantContext>(() => {
     const latestSite =
@@ -705,7 +738,13 @@ export function LeadMapApp() {
 
   function openSiteBuilder(lead: BusinessLead) {
     const businessId = siteBuilderKey(lead);
-    sessionStorage.setItem(`site-builder:${businessId}`, JSON.stringify(lead));
+    try {
+      sessionStorage.setItem(`site-builder:${businessId}`, JSON.stringify(lead));
+    } catch (storageError) {
+      console.warn("WebLeads session storage write failed:", storageError);
+      setError("Não foi possível abrir o editor agora. Recarregue a página e tente novamente.");
+      return;
+    }
     router.push(`/site-builder/${businessId}`);
   }
 
@@ -1701,16 +1740,20 @@ function LeafletMap({
 
     layer.clearLayers();
 
-    if (!leads.length) {
+    const drawableLeads = leads.filter((lead) => isValidCoordinate(lead.latitude, lead.longitude));
+
+    if (!drawableLeads.length) {
       return;
     }
 
     const bounds = L.latLngBounds([]);
 
-    leads.forEach((lead) => {
+    drawableLeads.forEach((lead) => {
       const selected =
         selectedLead?.osmId === lead.osmId && selectedLead?.osmType === lead.osmType;
-      const marker = L.circleMarker([lead.latitude, lead.longitude], {
+      const latitude = Number(lead.latitude);
+      const longitude = Number(lead.longitude);
+      const marker = L.circleMarker([latitude, longitude], {
         radius: selected ? 10 : 8,
         fillColor: lead.hasWebsite ? "#6ee7ff" : "#f472b6",
         color: "#ffffff",
@@ -1722,11 +1765,11 @@ function LeafletMap({
       marker.bindTooltip(lead.name);
       marker.on("click", () => onSelectLead(lead));
       marker.addTo(layer);
-      bounds.extend([lead.latitude, lead.longitude]);
+      bounds.extend([latitude, longitude]);
     });
 
-    if (leads.length === 1) {
-      map.setView([leads[0].latitude, leads[0].longitude], 16);
+    if (drawableLeads.length === 1) {
+      map.setView([Number(drawableLeads[0].latitude), Number(drawableLeads[0].longitude)], 16);
     } else {
       map.fitBounds(bounds, { padding: [42, 42] });
     }
