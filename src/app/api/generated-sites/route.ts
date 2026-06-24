@@ -199,14 +199,13 @@ export async function POST(request: Request) {
   const supabase = getSupabaseAdmin();
 
   if (!supabase) {
-    return NextResponse.json({
-      site: siteRowToGeneratedSite({
-        ...payload,
-        id: crypto.randomUUID(),
-        created_at: new Date().toISOString(),
-      }),
-      warning: "Supabase não configurado; preview salvo apenas na resposta.",
-    });
+    return NextResponse.json(
+      {
+        error:
+          "Publicação indisponível: configure SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY na Vercel para salvar o site público.",
+      },
+      { status: 503 },
+    );
   }
 
   const { data, error } = await supabase
@@ -221,3 +220,4 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ site: siteRowToGeneratedSite(data) });
 }
+
