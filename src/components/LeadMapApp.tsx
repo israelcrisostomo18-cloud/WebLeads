@@ -83,22 +83,6 @@ type GeneratorState = {
   previewSite: GeneratedSite | null;
 };
 
-type GenerateLandingResponse = {
-  draft?: Omit<SiteDraft, "services" | "benefits"> & {
-    services: string[];
-    benefits: string[];
-    differentials?: string[];
-    gallery?: string[];
-    questions?: Array<{ question: string; answer: string }>;
-    siteName?: string;
-  };
-  error?: string;
-  warning?: string;
-  diagnosticCode?: string;
-  model?: string;
-  source?: "openai" | "fallback";
-};
-
 type SiteHistory = Record<string, GeneratedSite[]>;
 
 type MapCenter = {
@@ -748,57 +732,16 @@ export function LeadMapApp() {
     router.push(`/site-builder/${businessId}`);
   }
 
-  async function generateLandingWithAI(lead: BusinessLead) {
-    const key = leadKey(lead);
-    setGeneratingLandingKey(key);
-    setError(null);
-
+  function openAiSiteCreator(lead: BusinessLead) {
+    const businessId = siteBuilderKey(lead);
     try {
-      const response = await fetch("/api/generate-landing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lead,
-          style: {
-            tone: "profissional",
-            template: "auto",
-            colorPreference: "auto",
-          },
-        }),
-      });
-      const payload = (await response.json().catch(() => ({
-        error: "A resposta da IA veio em um formato inválido. Tente novamente.",
-      }))) as GenerateLandingResponse;
-
-      if (!response.ok || !payload.draft) {
-        throw new Error(payload.error ?? "Não foi possível gerar a landing page com IA.");
-      }
-
-      const variations = buildLandingVariations(lead);
-      setGenerator({
-        lead,
-        variations,
-        draft: {
-          ...payload.draft,
-          services: payload.draft.services.join("\n"),
-          benefits: payload.draft.benefits.join("\n"),
-        },
-        previewSite: null,
-      });
-      await fetchLeadSites(lead);
-
-      if (payload.warning) {
-        setError(payload.warning);
-      }
-    } catch (generationError) {
-      setError(
-        generationError instanceof Error
-          ? generationError.message
-          : "Não foi possível gerar a landing page com IA.",
-      );
-    } finally {
-      setGeneratingLandingKey(null);
+      sessionStorage.setItem(`site-builder:${businessId}`, JSON.stringify(lead));
+    } catch (storageError) {
+      console.warn("WebLeads session storage write failed:", storageError);
+      setError("Não foi possível abrir o criador de site agora. Recarregue a página e tente novamente.");
+      return;
     }
+    router.push(`/criar-site/${businessId}`);
   }
 
   async function openSiteEditor(lead: BusinessLead, site: GeneratedSite) {
@@ -1308,7 +1251,7 @@ export function LeadMapApp() {
                         void fetchLeadSites(lead);
                       }}
                       generatingAI={generatingLandingKey === leadKey(lead)}
-                      onGenerateAI={() => generateLandingWithAI(lead)}
+                      onGenerateAI={() => openAiSiteCreator(lead)}
                       onGenerate={() => openSiteBuilder(lead)}
                       onModels={() => openSiteBuilder(lead)}
                       onEditSite={(site) => openSiteEditor(lead, site)}
@@ -1919,7 +1862,7 @@ function LeadCard({
           }}
         >
           {generatingAI ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-          {generatingAI ? "Gerando..." : "Gerar landing page com IA"}
+          {generatingAI ? "Abrindo..." : "Criar site com IA"}
         </button>
         <button
           className="lead-action"

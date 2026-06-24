@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { ArrowLeft, Copy, Eye, FilePlus2, Loader2, MessageCircle, Save, Send } from "lucide-react";
+import { ArrowLeft, Copy, ExternalLink, Eye, FilePlus2, Loader2, MessageCircle, Save, Send, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
@@ -35,9 +35,13 @@ type SiteBuilderDraft = {
   description: string;
   services: string;
   benefits: string;
+  differentials: string;
   questions: string;
   ctaText: string;
   ctaFinal: string;
+  whatsappMessage: string;
+  seoTitle: string;
+  seoDescription: string;
   phone: string;
   address: string;
   primaryColor: string;
@@ -55,13 +59,28 @@ type SiteBuilderDraft = {
   deliveryNotes: string;
 };
 
+type GenerateLandingResponse = {
+  draft?: Partial<SiteBuilderDraft> & {
+    services?: string[];
+    benefits?: string[];
+    differentials?: string[];
+    questions?: Array<{ question: string; answer: string }>;
+    siteName?: string;
+  };
+  error?: string;
+  warning?: string;
+  diagnosticCode?: string;
+  model?: string;
+  source?: "openai" | "fallback";
+};
+
 const SALE_STATUS_OPTIONS: Array<{ value: GeneratedSiteStatus; label: string }> = [
   { value: "rascunho", label: "rascunho" },
   { value: "enviado", label: "enviado ao cliente" },
   { value: "visualizado", label: "cliente visualizou" },
   { value: "aceito", label: "cliente aceitou" },
   { value: "aguardando_pagamento", label: "aguardando pagamento" },
-  { value: "em_personalizacao", label: "em personalização" },
+  { value: "em_personalizacao", label: "em personalizaÃ§Ã£o" },
   { value: "publicado_definitivo", label: "publicado definitivo" },
   { value: "vendido", label: "vendido" },
   { value: "recusado", label: "recusado" },
@@ -70,12 +89,12 @@ const SALE_STATUS_OPTIONS: Array<{ value: GeneratedSiteStatus; label: string }> 
 const DELIVERY_ITEMS = [
   ["businessName", "nome final da empresa"],
   ["phone", "telefone/WhatsApp"],
-  ["address", "endereço"],
+  ["address", "endereÃ§o"],
   ["logo", "logo"],
   ["photos", "fotos"],
-  ["services", "serviços"],
+  ["services", "serviÃ§os"],
   ["colors", "cores"],
-  ["domain", "domínio próprio"],
+  ["domain", "domÃ­nio prÃ³prio"],
   ["social", "redes sociais"],
   ["payment", "forma de pagamento"],
 ] as const;
@@ -95,9 +114,9 @@ const SECTION_ORDER = [
 
 function questionsFor(lead: BusinessLead) {
   return [
-    `Quais serviços a ${lead.name} oferece?|O site destaca os principais serviços de ${lead.niche} e facilita o contato direto.`,
-    "Como entrar em contato?|Use o botão de WhatsApp para falar rapidamente com a empresa.",
-    "Onde fica a empresa?|A seção de localização mostra endereço e mapa com OpenStreetMap.",
+    `Quais serviÃ§os a ${lead.name} oferece?|O site destaca os principais serviÃ§os de ${lead.niche} e facilita o contato direto.`,
+    "Como entrar em contato?|Use o botÃ£o de WhatsApp para falar rapidamente com a empresa.",
+    "Onde fica a empresa?|A seÃ§Ã£o de localizaÃ§Ã£o mostra endereÃ§o e mapa com OpenStreetMap.",
   ].join("\n");
 }
 
@@ -114,9 +133,13 @@ function draftFromLead(lead: BusinessLead): SiteBuilderDraft {
     description: variation.description,
     services: variation.services.join("\n"),
     benefits: variation.benefits.join("\n"),
+    differentials: ["Atendimento prÃ¡tico", "ComunicaÃ§Ã£o rÃ¡pida", "PresenÃ§a online profissional"].join("\n"),
     questions: questionsFor(lead),
     ctaText: variation.ctaText,
     ctaFinal: variation.ctaFinal,
+    whatsappMessage: getInitialProspectingMessage(),
+    seoTitle: `${lead.name} | ${lead.niche} em ${lead.city}`,
+    seoDescription: `${lead.name} em ${lead.city}. Veja serviÃ§os, localizaÃ§Ã£o e contato pelo WhatsApp.`,
     phone: lead.phone ?? "",
     address: lead.address,
     primaryColor: variation.primaryColor,
@@ -149,6 +172,29 @@ function parseQuestions(value: string) {
   });
 }
 
+function questionsToText(questions: Array<{ question: string; answer: string }> | undefined, fallback: string) {
+  if (!questions?.length) {
+    return fallback;
+  }
+
+  return questions
+    .map((item) => `${item.question || "Pergunta"}|${item.answer || "Resposta curta e objetiva."}`)
+    .join("\n");
+}
+
+function arrayToText(value: unknown, fallback: string) {
+  if (Array.isArray(value)) {
+    const clean = value.map((item) => String(item ?? "").trim()).filter(Boolean);
+    return clean.length ? clean.join("\n") : fallback;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    return value;
+  }
+
+  return fallback;
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="grid gap-1 text-sm font-medium text-[#b8c7da]">
@@ -163,13 +209,13 @@ function makeMessage(link: string) {
 }
 
 function makeSalesProposal(link: string, price: string) {
-  return `Oi, tudo bem? Esse é o modelo de site que preparei para sua empresa:
+  return `Oi, tudo bem? Esse Ã© o modelo de site que preparei para sua empresa:
 ${link}
 
-Se você gostar, eu posso deixar ele pronto com suas cores, WhatsApp, endereço, fotos, serviços e domínio próprio.
+Se vocÃª gostar, eu posso deixar ele pronto com suas cores, WhatsApp, endereÃ§o, fotos, serviÃ§os e domÃ­nio prÃ³prio.
 
-O valor para ativar e personalizar esse site é R$${price || "___"}.
-Posso finalizar para você?`;
+O valor para ativar e personalizar esse site Ã© R$${price || "___"}.
+Posso finalizar para vocÃª?`;
 }
 
 function readStoredLead(businessId: string) {
@@ -209,7 +255,13 @@ function readStoredLead(businessId: string) {
   return null;
 }
 
-export function SiteBuilderApp({ businessId }: { businessId: string }) {
+export function SiteBuilderApp({
+  businessId,
+  mode = "manual",
+}: {
+  businessId: string;
+  mode?: "manual" | "ai";
+}) {
   const initialLead = useMemo(() => {
     return readStoredLead(businessId);
   }, [businessId]);
@@ -218,6 +270,8 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
   const [previewMode, setPreviewMode] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [savedSite, setSavedSite] = useState<GeneratedSite | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [hasGeneratedPreview, setHasGeneratedPreview] = useState(mode !== "ai");
   const [dirty, setDirty] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -225,6 +279,7 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
   const variations = useMemo(() => (lead ? buildLandingVariations(lead) : []), [lead]);
   const services = lines(draft?.services ?? "");
   const benefits = lines(draft?.benefits ?? "");
+  const differentials = lines(draft?.differentials ?? "");
   const faqs = parseQuestions(draft?.questions ?? "");
   const publicLink = savedSite?.publicUrl ?? "";
   const whatsappMessage = lead ? makeMessage(publicLink) : "";
@@ -260,6 +315,7 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
 
   function update<K extends keyof SiteBuilderDraft>(key: K, value: SiteBuilderDraft[K]) {
     setDraft((current) => (current ? { ...current, [key]: value } : current));
+    setHasGeneratedPreview(true);
     setDirty(true);
   }
 
@@ -281,7 +337,78 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
       primaryColor: variation.primaryColor,
       accentColor: variation.accentColor,
     } : current);
+    setHasGeneratedPreview(true);
     setDirty(true);
+  }
+
+  async function generateSiteWithAI() {
+    if (!lead || !draft) return;
+
+    setIsGeneratingAI(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/generate-landing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lead,
+          style: {
+            tone: "profissional",
+            template: draft.templateType,
+            colorPreference: "auto",
+          },
+        }),
+      });
+      const payload = (await response.json().catch(() => ({
+        error: "A resposta da IA veio em um formato invÃ¡lido. Tente novamente.",
+      }))) as GenerateLandingResponse;
+
+      if (!response.ok || !payload.draft) {
+        throw new Error(payload.error ?? "NÃ£o foi possÃ­vel gerar o site agora. Tente novamente.");
+      }
+
+      setDraft((current) => {
+        if (!current) return current;
+        const next = payload.draft ?? {};
+
+        return {
+          ...current,
+          siteName: next.siteName || current.siteName,
+          title: next.title || current.title,
+          subtitle: next.subtitle || current.subtitle,
+          description: next.description || current.description,
+          services: arrayToText(next.services, current.services),
+          benefits: arrayToText(next.benefits, current.benefits),
+          differentials: arrayToText(next.differentials, current.differentials),
+          questions: questionsToText(next.questions, current.questions),
+          ctaText: next.ctaText || current.ctaText,
+          ctaFinal: next.ctaFinal || current.ctaFinal,
+          phone: next.phone ?? current.phone,
+          address: next.address || current.address,
+          primaryColor: next.primaryColor || current.primaryColor,
+          accentColor: next.accentColor || current.accentColor,
+          showMap: next.showMap ?? current.showMap,
+          showAbout: next.showAbout ?? current.showAbout,
+          showBenefits: next.showBenefits ?? current.showBenefits,
+          showFaq: next.showFaq ?? current.showFaq,
+        };
+      });
+      setHasGeneratedPreview(true);
+      setDirty(true);
+
+      if (payload.warning) {
+        setError(payload.warning);
+      }
+    } catch (generationError) {
+      setError(
+        generationError instanceof Error
+          ? generationError.message
+          : "NÃ£o foi possÃ­vel gerar o site agora. Tente novamente.",
+      );
+    } finally {
+      setIsGeneratingAI(false);
+    }
   }
 
   async function publishSite() {
@@ -304,6 +431,7 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
           description: draft.description,
           services,
           benefits,
+          differentials,
           questions: faqs,
           ctaText: draft.ctaText,
           ctaFinal: draft.ctaFinal,
@@ -329,7 +457,7 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
       const payload = (await response.json()) as { site?: GeneratedSite; error?: string };
 
       if (!response.ok || !payload.site) {
-        throw new Error(payload.error ?? "Não foi possível publicar o site.");
+        throw new Error(payload.error ?? "NÃ£o foi possÃ­vel publicar o site.");
       }
 
       setSavedSite(payload.site);
@@ -389,7 +517,7 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
     return (
       <main className="premium-shell grid min-h-screen place-items-center p-6 text-center">
         <div className="premium-panel max-w-lg rounded-2xl p-8">
-          <h1 className="text-2xl font-black text-white">Lead não encontrado</h1>
+          <h1 className="text-2xl font-black text-white">Lead nÃ£o encontrado</h1>
           <p className="mt-3 text-[#95a7bd]">Volte ao mapa, escolha uma empresa e clique em Gerar Site.</p>
           <Link className="mt-6 inline-flex h-11 items-center justify-center rounded-lg bg-[#6ee7ff] px-4 font-bold text-[#06101d]" href="/mapa">
             Voltar ao mapa
@@ -410,31 +538,41 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
               <ArrowLeft className="size-4" />
             </Link>
             <div>
-              <p className="text-xs font-bold uppercase text-[#6ee7ff]">Editor de Site</p>
+              <p className="text-xs font-bold uppercase text-[#6ee7ff]">{mode === "ai" ? "Criador de site com IA" : "Editor de Site"}</p>
               <h1 className="text-lg font-black text-white">{lead.name}</h1>
-              <p className="text-xs text-[#95a7bd]">{lead.niche} · {lead.city} · {lead.source ?? "osm"}</p>
+              <p className="text-xs text-[#95a7bd]">{lead.niche} Â· {lead.city} Â· {lead.source ?? "osm"}</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-[#6ee7ff]/20 bg-white/5 px-3 py-2 text-xs font-bold text-[#dceeff]">
-              {dirty ? "alterações não salvas" : savedSite?.status ?? "rascunho"}
+              {dirty ? "alteraÃ§Ãµes nÃ£o salvas" : savedSite?.status ?? "rascunho"}
             </span>
             <button className="lead-action" onClick={() => setDirty(false)}>
               <Save className="size-4" />
-              Salvar
+              Salvar rascunho
+            </button>
+            <button className="lead-action border-[#c4b5fd]/35 bg-[#6366f1]/18 text-[#ecebff]" disabled={isGeneratingAI} onClick={generateSiteWithAI}>
+              {isGeneratingAI ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+              {isGeneratingAI ? "Gerando site..." : "Gerar site com IA"}
             </button>
             <button className="lead-action" onClick={() => setPreviewMode(previewMode === "desktop" ? "mobile" : "desktop")}>
               <Eye className="size-4" />
-              Pré-visualizar
+              PrÃ©-visualizar
             </button>
             <button className="lead-action border-[#6ee7ff]/32 bg-[#21d4fd] text-[#06101d]" disabled={isSaving} onClick={publishSite}>
               {isSaving ? <Loader2 className="size-4 animate-spin" /> : <FilePlus2 className="size-4" />}
-              Publicar link temporário
+              Publicar link temporÃ¡rio
             </button>
             <button className="lead-action" disabled={!publicLink} onClick={copyLink}>
               <Copy className="size-4" />
               {copied ? "Copiado" : "Copiar link"}
             </button>
+            {publicLink ? (
+              <a className="lead-action" href={publicLink} rel="noreferrer">
+                <ExternalLink className="size-4" />
+                Abrir site publicado
+              </a>
+            ) : null}
             <button className="lead-action" disabled={!publicLink} onClick={copyProposal}>
               <Copy className="size-4" />
               Copiar proposta
@@ -483,20 +621,20 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
           <h2 className="font-black text-white">Visual</h2>
           <div className="mt-3 grid gap-3">
             <Field label="Cor principal"><input className="field h-11" type="color" value={draft.primaryColor} onChange={(event) => update("primaryColor", event.target.value)} /></Field>
-            <Field label="Cor secundária"><input className="field h-11" type="color" value={draft.accentColor} onChange={(event) => update("accentColor", event.target.value)} /></Field>
+            <Field label="Cor secundÃ¡ria"><input className="field h-11" type="color" value={draft.accentColor} onChange={(event) => update("accentColor", event.target.value)} /></Field>
             <Field label="Tema">
               <select className="field" value={draft.visualStyle} onChange={(event) => update("visualStyle", event.target.value as LandingVisualStyle)}>
                 <option value="claro">Profissional claro</option>
                 <option value="escuro">Premium escuro</option>
                 <option value="minimalista">Minimalista</option>
-                <option value="gradiente">Conversão</option>
-                <option value="cartao">Local em cartões</option>
+                <option value="gradiente">ConversÃ£o</option>
+                <option value="cartao">Local em cartÃµes</option>
               </select>
             </Field>
-            <Field label="Botão">
+            <Field label="BotÃ£o">
               <select className="field" value={draft.buttonStyle} onChange={(event) => update("buttonStyle", event.target.value as LandingButtonStyle)}>
-                <option value="primary">Primário</option>
-                <option value="secondary">Secundário</option>
+                <option value="primary">PrimÃ¡rio</option>
+                <option value="secondary">SecundÃ¡rio</option>
                 <option value="whatsapp">WhatsApp</option>
                 <option value="premium">Premium neon</option>
               </select>
@@ -511,14 +649,14 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
           </div>
 
           <div className="premium-divider my-5" />
-          <h2 className="font-black text-white">Seções</h2>
+          <h2 className="font-black text-white">SeÃ§Ãµes</h2>
           <div className="mt-3 grid gap-2 text-sm text-[#dceeff]">
             <label className="flex items-center gap-2"><input type="checkbox" checked={draft.showAbout} onChange={(event) => update("showAbout", event.target.checked)} /> Sobre</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.showBenefits} onChange={(event) => update("showBenefits", event.target.checked)} /> Benefícios</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.showMap} onChange={(event) => update("showMap", event.target.checked)} /> Localização</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.showFaq} onChange={(event) => update("showFaq", event.target.checked)} /> Perguntas rápidas</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.showBenefits} onChange={(event) => update("showBenefits", event.target.checked)} /> BenefÃ­cios</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.showMap} onChange={(event) => update("showMap", event.target.checked)} /> LocalizaÃ§Ã£o</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.showFaq} onChange={(event) => update("showFaq", event.target.checked)} /> Perguntas rÃ¡pidas</label>
           </div>
-          <p className="mt-3 text-xs text-[#7f93aa]">Ordem atual: {SECTION_ORDER.join(" → ")}</p>
+          <p className="mt-3 text-xs text-[#7f93aa]">Ordem atual: {SECTION_ORDER.join(" â†’ ")}</p>
         </aside>
 
         <section className="premium-panel min-h-[70vh] rounded-2xl p-4">
@@ -532,6 +670,26 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
               ))}
             </div>
           </div>
+          {!hasGeneratedPreview ? (
+            <div className="grid min-h-[520px] place-items-center rounded-xl border border-dashed border-[#6ee7ff]/25 bg-[#09111f]/70 p-8 text-center">
+              <div className="max-w-md">
+                <Sparkles className="mx-auto size-10 text-[#6ee7ff]" />
+                <h2 className="mt-4 text-2xl font-black text-white">Pronto para criar o site</h2>
+                <p className="mt-3 text-sm leading-6 text-[#95a7bd]">
+                  Clique em Gerar site com IA para criar uma primeira versÃ£o profissional. Depois vocÃª poderÃ¡ editar textos,
+                  cores, seÃ§Ãµes, CTA e publicar o link.
+                </p>
+                <button
+                  className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#6ee7ff]/30 bg-[#21d4fd] px-4 text-sm font-black text-[#06101d] disabled:opacity-60"
+                  disabled={isGeneratingAI}
+                  onClick={generateSiteWithAI}
+                >
+                  {isGeneratingAI ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                  {isGeneratingAI ? "Gerando site profissional com IA..." : "Gerar site com IA"}
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className="scroll-stable max-h-[calc(100vh-170px)] overflow-y-auto rounded-xl bg-[#e8edf5] p-4">
             <div className={`mx-auto overflow-hidden rounded-2xl bg-white shadow-2xl ${previewWidth}`}>
               <LandingHero data={renderData} />
@@ -550,7 +708,7 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
                 <div className="mx-auto max-w-6xl rounded-2xl border border-[#d9ddd2] bg-white p-6 shadow-sm">
                   <h2 className="text-2xl font-black">Diferenciais</h2>
                   <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    {["Atendimento prático", "Comunicação rápida", "Presença online profissional"].map((item) => (
+                    {["Atendimento prÃ¡tico", "ComunicaÃ§Ã£o rÃ¡pida", "PresenÃ§a online profissional"].map((item) => (
                       <div key={item} className="rounded-xl bg-[#f8faf6] p-4 text-sm font-bold">{item}</div>
                     ))}
                   </div>
@@ -560,7 +718,7 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
               {draft.showFaq ? (
                 <section className="px-5 py-10 md:px-10">
                   <div className="mx-auto max-w-6xl rounded-2xl border border-[#d9ddd2] bg-white p-6 shadow-sm">
-                    <h2 className="text-2xl font-black">Perguntas rápidas</h2>
+                    <h2 className="text-2xl font-black">Perguntas rÃ¡pidas</h2>
                     <div className="mt-4 grid gap-3">
                       {faqs.map((faq) => (
                         <details key={faq.question} className="rounded-xl bg-[#f8faf6] p-4">
@@ -576,10 +734,11 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
               <LandingFooter data={renderData} />
             </div>
           </div>
+          )}
         </section>
 
         <aside className="premium-panel scroll-stable max-h-[calc(100vh-96px)] overflow-y-auto rounded-2xl p-4">
-          <h2 className="font-black text-white">Conteúdo</h2>
+          <h2 className="font-black text-white">ConteÃºdo</h2>
           <div className="mt-3 grid gap-3">
             <Field label="Status da venda">
               <select className="field" value={draft.saleStatus} onChange={(event) => update("saleStatus", event.target.value as GeneratedSiteStatus)}>
@@ -591,16 +750,20 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
               </select>
             </Field>
             <Field label="Nome do site"><input className="field" value={draft.siteName} onChange={(event) => update("siteName", event.target.value)} /></Field>
-            <Field label="Título principal"><textarea className="field min-h-24" value={draft.title} onChange={(event) => update("title", event.target.value)} /></Field>
-            <Field label="Subtítulo"><textarea className="field min-h-24" value={draft.subtitle} onChange={(event) => update("subtitle", event.target.value)} /></Field>
+            <Field label="TÃ­tulo principal"><textarea className="field min-h-24" value={draft.title} onChange={(event) => update("title", event.target.value)} /></Field>
+            <Field label="SubtÃ­tulo"><textarea className="field min-h-24" value={draft.subtitle} onChange={(event) => update("subtitle", event.target.value)} /></Field>
             <Field label="Texto sobre"><textarea className="field min-h-32" value={draft.description} onChange={(event) => update("description", event.target.value)} /></Field>
-            <Field label="Serviços"><textarea className="field min-h-32" value={draft.services} onChange={(event) => update("services", event.target.value)} /></Field>
-            <Field label="Benefícios"><textarea className="field min-h-32" value={draft.benefits} onChange={(event) => update("benefits", event.target.value)} /></Field>
+            <Field label="ServiÃ§os"><textarea className="field min-h-32" value={draft.services} onChange={(event) => update("services", event.target.value)} /></Field>
+            <Field label="BenefÃ­cios"><textarea className="field min-h-32" value={draft.benefits} onChange={(event) => update("benefits", event.target.value)} /></Field>
+            <Field label="Diferenciais"><textarea className="field min-h-32" value={draft.differentials} onChange={(event) => update("differentials", event.target.value)} /></Field>
             <Field label="Perguntas e respostas"><textarea className="field min-h-32" value={draft.questions} onChange={(event) => update("questions", event.target.value)} /></Field>
             <Field label="CTA principal"><input className="field" value={draft.ctaText} onChange={(event) => update("ctaText", event.target.value)} /></Field>
             <Field label="CTA final"><textarea className="field min-h-20" value={draft.ctaFinal} onChange={(event) => update("ctaFinal", event.target.value)} /></Field>
+            <Field label="Mensagem automÃ¡tica do WhatsApp"><textarea className="field min-h-24" value={draft.whatsappMessage} onChange={(event) => update("whatsappMessage", event.target.value)} /></Field>
+            <Field label="TÃ­tulo SEO"><input className="field" value={draft.seoTitle} onChange={(event) => update("seoTitle", event.target.value)} /></Field>
+            <Field label="DescriÃ§Ã£o SEO"><textarea className="field min-h-20" value={draft.seoDescription} onChange={(event) => update("seoDescription", event.target.value)} /></Field>
             <Field label="WhatsApp"><input className="field" value={draft.phone} onChange={(event) => update("phone", event.target.value)} /></Field>
-            <Field label="Endereço"><textarea className="field min-h-20" value={draft.address} onChange={(event) => update("address", event.target.value)} /></Field>
+            <Field label="EndereÃ§o"><textarea className="field min-h-20" value={draft.address} onChange={(event) => update("address", event.target.value)} /></Field>
           </div>
           <Field label="Valor para ativar e personalizar"><input className="field mt-3" placeholder="Ex: 497,00" value={draft.salePrice} onChange={(event) => update("salePrice", event.target.value)} /></Field>
 
@@ -614,31 +777,31 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
               </label>
             ))}
           </div>
-          <Field label="Observações"><textarea className="field mt-3 min-h-24" value={draft.deliveryNotes} onChange={(event) => update("deliveryNotes", event.target.value)} /></Field>
+          <Field label="ObservaÃ§Ãµes"><textarea className="field mt-3 min-h-24" value={draft.deliveryNotes} onChange={(event) => update("deliveryNotes", event.target.value)} /></Field>
 
           <div className="premium-divider my-5" />
-          <h2 className="font-black text-white">Publicação final</h2>
+          <h2 className="font-black text-white">PublicaÃ§Ã£o final</h2>
           <div className="mt-3 grid gap-3">
-            <Field label="Modo de publicação">
+            <Field label="Modo de publicaÃ§Ã£o">
               <select className="field" value={draft.finalPublishMode} onChange={(event) => update("finalPublishMode", event.target.value as SiteBuilderDraft["finalPublishMode"])}>
-                <option value="subdomain">manter no subdomínio do sistema</option>
-                <option value="custom_domain">conectar domínio próprio do cliente</option>
-                <option value="temporary_domain">usar domínio temporário</option>
+                <option value="subdomain">manter no subdomÃ­nio do sistema</option>
+                <option value="custom_domain">conectar domÃ­nio prÃ³prio do cliente</option>
+                <option value="temporary_domain">usar domÃ­nio temporÃ¡rio</option>
                 <option value="preview">deixar como preview</option>
               </select>
             </Field>
-            <Field label="Domínio próprio"><input className="field" placeholder="barbeariadojoao.com.br" value={draft.customDomain} onChange={(event) => update("customDomain", event.target.value)} /></Field>
+            <Field label="DomÃ­nio prÃ³prio"><input className="field" placeholder="barbeariadojoao.com.br" value={draft.customDomain} onChange={(event) => update("customDomain", event.target.value)} /></Field>
             <div className="rounded-lg border border-[#6ee7ff]/16 bg-white/5 p-3 text-xs leading-5 text-[#95a7bd]">
-              Para domínio próprio, configure o DNS apontando para a Vercel ou hospedagem usada no projeto.
+              Para domÃ­nio prÃ³prio, configure o DNS apontando para a Vercel ou hospedagem usada no projeto.
             </div>
           </div>
 
           {error ? <div className="mt-4 rounded-lg border border-[#f472b6]/35 bg-[#f472b6]/12 p-3 text-sm text-[#ffd4e8]">{error}</div> : null}
           {publicLink ? (
             <div className="mt-4 rounded-lg border border-[#6ee7ff]/20 bg-white/5 p-3 text-sm text-[#dceeff]">
-              <div className="font-bold text-white">Link temporário publicado</div>
+              <div className="font-bold text-white">Link temporÃ¡rio publicado</div>
               <div className="mt-2 break-all text-[#95a7bd]">{publicLink}</div>
-              {!whatsappUrl ? <div className="mt-2 text-[#ffd4e8]">Este lead não possui telefone cadastrado. Copie a mensagem e envie manualmente.</div> : null}
+              {!whatsappUrl ? <div className="mt-2 text-[#ffd4e8]">Este lead nÃ£o possui telefone cadastrado. Copie a mensagem e envie manualmente.</div> : null}
             </div>
           ) : null}
         </aside>
@@ -646,3 +809,4 @@ export function SiteBuilderApp({ businessId }: { businessId: string }) {
     </main>
   );
 }
+
