@@ -4,7 +4,7 @@ import type { BusinessLead } from "@/types";
 export const runtime = "nodejs";
 
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
-const DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-5-20250929";
+const DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-6";
 const ANTHROPIC_VERSION = "2023-06-01";
 const CLAUDE_TIMEOUT_MS = 60_000;
 
