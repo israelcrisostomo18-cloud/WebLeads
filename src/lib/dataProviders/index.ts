@@ -1,5 +1,5 @@
 import { foursquareProvider } from "@/lib/dataProviders/foursquareProvider";
-import { googleProviderPlaceholder } from "@/lib/dataProviders/googleProviderPlaceholder";
+import { googleProvider } from "@/lib/dataProviders/googleProvider";
 import { osmProvider } from "@/lib/dataProviders/osmProvider";
 import type { DataProvider } from "@/lib/dataProviders/types";
 import type { DataProviderSource } from "@/types";
@@ -7,7 +7,7 @@ import type { DataProviderSource } from "@/types";
 export const dataProviders: Record<DataProviderSource, DataProvider> = {
   osm: osmProvider,
   foursquare: foursquareProvider,
-  google: googleProviderPlaceholder,
+  google: googleProvider,
 };
 
 export function getDataProvider(source: DataProviderSource) {

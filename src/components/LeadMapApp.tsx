@@ -48,7 +48,7 @@ const DATA_SOURCE_OPTIONS: Array<{
 }> = [
   { value: "osm", label: "Fonte gratuita: OpenStreetMap", helper: "Overpass API" },
   { value: "foursquare", label: "Fonte avançada: Foursquare", helper: "Places API" },
-  { value: "google", label: "Fonte premium: Google Places", helper: "em breve" },
+  { value: "google", label: "Fonte premium: Google Places", helper: "Places API New" },
 ];
 const MIN_RADIUS_KM = 1;
 const MAX_RADIUS_KM = 50;
@@ -352,6 +352,43 @@ function generateAssistantReply(message: string, context: AssistantContext) {
   const city = lead?.city ?? context.selectedCity;
   const pricing = getPricingForNiche(niche, city);
   const target = leadLabel(lead, niche, city);
+
+  if (normalized.includes("nicho") || normalized.includes("segmento") || normalized.includes("qual buscar")) {
+    return `Eu priorizaria nichos com dor clara e decisão rápida em ${city || "sua cidade"}.
+
+Comece por:
+- Barbearia, estética, oficina, clínica, restaurante e academia.
+- Empresas com telefone e sem site.
+- Leads com endereço completo, porque isso facilita abordagem local.
+
+Roteiro prático: escolha um nicho, busque em raio de 5 a 10 km, salve 20 empresas sem site e gere 3 modelos para usar como prova visual. Depois aborde primeiro quem tem WhatsApp.`;
+  }
+
+  if (normalized.includes("20") || normalized.includes("lista") || normalized.includes("lote")) {
+    return `Plano para trabalhar 20 empresas:
+
+1. Separe 20 leads sem site e com telefone.
+2. Gere site apenas para os 3 melhores, para não gastar energia antes de validar interesse.
+3. Envie uma mensagem curta pedindo permissão para mandar o link.
+4. Quem responder, recebe o modelo pronto e a proposta.
+5. Quem não responder, entra em follow-up no dia seguinte.
+
+Meta realista: 20 contatos bem escolhidos podem gerar 2 a 5 conversas e 1 proposta forte.`;
+  }
+
+  if (normalized.includes("analis") || normalized.includes("avaliar lead") || normalized.includes("esse lead")) {
+    const phoneStatus = lead?.phone ? "tem telefone, então vale abordagem direta" : "não tem telefone visível, então use o endereço ou pesquise contato antes";
+    const websiteStatus = lead?.hasWebsite ? "já tem site, trate como melhoria ou redesign" : "não tem site cadastrado, bom alvo para oferta de presença online";
+
+    return `Análise comercial de ${target}:
+
+- Situação digital: ${websiteStatus}.
+- Contato: ${phoneStatus}.
+- Ângulo de venda: mostrar um modelo simples, com serviços, endereço e botão de WhatsApp.
+- Oferta inicial: site profissional pronto para ativar e personalizar.
+
+Eu abordaria com curiosidade, não com pressão: "preparei um modelo visual para vocês avaliarem, posso mandar o link?"`;
+  }
 
   if (normalized.includes("preç") || normalized.includes("precific") || normalized.includes("valor")) {
     return `Precificação recomendada para ${target}:
@@ -1315,7 +1352,7 @@ export function LeadMapApp() {
                       : source === "foursquare"
                         ? "Dados novos do Foursquare"
                         : source === "google"
-                          ? "Google Places ainda não configurado"
+                          ? "Dados novos do Google Places"
                           : "Faça uma busca manual"}
                 </p>
               </div>
@@ -1620,11 +1657,11 @@ function AIAssistantWidget({
 }) {
   const [draft, setDraft] = useState("");
   const suggestions = [
+    "Qual nicho buscar hoje?",
+    "Plano para 20 empresas",
+    "Analisar esse lead",
+    "Mensagem curta WhatsApp",
     "Precificar site",
-    "Gerar mensagem",
-    "Estratégia de venda",
-    "Configurar domínio",
-    "Como usar WebLeads",
   ];
   const intro = context.selectedLead
     ? `Analisando ${context.selectedLead.name}`
@@ -1707,7 +1744,7 @@ function AIAssistantWidget({
                 ))
               ) : (
                 <div className="rounded-xl border border-dashed border-[#6ee7ff]/20 bg-white/5 p-4 text-sm leading-6 text-[#95a7bd]">
-                  Selecione um lead ou faça uma busca. Depois peça preço, mensagem, estratégia, domínio ou guia de entrega.
+                  Selecione um lead ou faça uma busca. Depois peça análise, nichos, mensagem, preço ou estratégia de venda.
                 </div>
               )}
             </div>
@@ -1725,7 +1762,7 @@ function AIAssistantWidget({
                 className="field h-11"
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
-                placeholder="Pergunte sobre preço, venda, domínio..."
+                placeholder="Pergunte sobre nicho, lead, preço ou venda..."
               />
               <button className="flex h-11 items-center justify-center gap-2 rounded-lg bg-[#6ee7ff] px-4 text-sm font-black text-[#06101d]" type="submit">
                 <Send className="size-4" />

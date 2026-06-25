@@ -353,7 +353,7 @@ export async function POST(request: Request) {
             ? providerError.message
             : "Não foi possível buscar dados nessa fonte.",
       },
-      { status: provider === "google" ? 501 : 502 },
+      { status: 502 },
     );
   }
 

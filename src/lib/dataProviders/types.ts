@@ -22,7 +22,10 @@ export function normalizedPlaceToLead(place: NormalizedPlace, args: SearchProvid
       ? `https://www.openstreetmap.org/${providerType}/${place.id}`
       : place.source === "foursquare"
         ? `https://foursquare.com/v/${place.id}`
-        : `https://www.openstreetmap.org/?mlat=${place.latitude}&mlon=${place.longitude}#map=17/${place.latitude}/${place.longitude}`;
+        : String(
+            place.raw_data.google_maps_url ||
+              `https://www.google.com/maps/search/?api=1&query=${place.latitude},${place.longitude}`,
+          );
 
   return {
     source: place.source,
