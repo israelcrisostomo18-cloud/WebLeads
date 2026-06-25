@@ -4,7 +4,7 @@ import type { BusinessLead } from "@/types";
 
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const OVERPASS_URL =
-  process.env.OVERPASS_API_URL ?? "https://overpass-api.de/api/interpreter";
+  process.env.OVERPASS_API_URL?.trim() || "https://overpass-api.de/api/interpreter";
 const OVERPASS_FALLBACK_URLS = [
   OVERPASS_URL,
   "https://overpass.kumi.systems/api/interpreter",
@@ -79,26 +79,46 @@ function buildOverpassQuery(args: {
 }) {
   const definition = OSM_NICHE_FILTERS[args.niche];
 
-  if (!definition) {
-    throw new Error("Nicho sem filtro OpenStreetMap configurado.");
-  }
-
   const radiusMeters = Math.min(Math.max(args.radiusKm, MIN_RADIUS_KM), MAX_RADIUS_KM) * 1000;
-  const selectors = definition.filters
-    .flatMap((filter) => [
-      `node["${filter.key}"="${filter.value}"](around:${radiusMeters},${args.latitude},${args.longitude});`,
-      `way["${filter.key}"="${filter.value}"](around:${radiusMeters},${args.latitude},${args.longitude});`,
-      `relation["${filter.key}"="${filter.value}"](around:${radiusMeters},${args.latitude},${args.longitude});`,
-    ])
-    .join("\n");
+  const selectors = definition
+    ? definition.filters
+        .flatMap((filter) => [
+          `node["${filter.key}"="${filter.value}"](around:${radiusMeters},${args.latitude},${args.longitude});`,
+          `way["${filter.key}"="${filter.value}"](around:${radiusMeters},${args.latitude},${args.longitude});`,
+          `relation["${filter.key}"="${filter.value}"](around:${radiusMeters},${args.latitude},${args.longitude});`,
+        ])
+        .join("\n")
+    : buildKeywordSelectors(args.niche, radiusMeters, args.latitude, args.longitude);
 
   return `
 [out:json][timeout:35];
 (
 ${selectors}
 );
-out center tags 200;
+out tags center 200;
 `;
+}
+
+function escapeOverpassRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/"/g, '\\"');
+}
+
+function buildKeywordSelectors(niche: string, radiusMeters: number, latitude: number, longitude: number) {
+  const keyword = escapeOverpassRegex(niche.trim());
+
+  if (!keyword) {
+    throw new Error("Escolha um nicho antes de buscar.");
+  }
+
+  const tags = ["name", "amenity", "shop", "office", "leisure", "craft"];
+
+  return tags
+    .flatMap((tag) => [
+      `node["${tag}"~"${keyword}",i](around:${radiusMeters},${latitude},${longitude});`,
+      `way["${tag}"~"${keyword}",i](around:${radiusMeters},${latitude},${longitude});`,
+      `relation["${tag}"~"${keyword}",i](around:${radiusMeters},${latitude},${longitude});`,
+    ])
+    .join("\n");
 }
 
 function distanceInKm(a: Coordinates, b: Coordinates) {
@@ -157,8 +177,9 @@ async function fetchOverpass(query: string) {
       const response = await fetch(url, {
         method: "POST",
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-          "User-Agent": "MapaDeLeadsSemSiteOpenSource/1.0",
+          "Accept": "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
+          "User-Agent": "WebLeads/1.0 (open-source lead search; contact: admin@webleads.local)",
         },
         body: new URLSearchParams({ data: query }),
         cache: "no-store",
@@ -166,11 +187,17 @@ async function fetchOverpass(query: string) {
       });
 
       if (!response.ok) {
+        console.warn("Overpass request failed:", url, response.status);
         throw new Error(`Overpass respondeu ${response.status}.`);
       }
 
       return response;
     } catch (error) {
+      console.warn(
+        "Overpass request error:",
+        url,
+        error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+      );
       lastError =
         error instanceof Error && error.name === "AbortError"
           ? new Error("Erro ao buscar dados. Tente novamente ou reduza o raio.")

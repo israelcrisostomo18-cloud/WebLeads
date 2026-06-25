@@ -80,7 +80,7 @@ const SALE_STATUS_OPTIONS: Array<{ value: GeneratedSiteStatus; label: string }> 
   { value: "visualizado", label: "cliente visualizou" },
   { value: "aceito", label: "cliente aceitou" },
   { value: "aguardando_pagamento", label: "aguardando pagamento" },
-  { value: "em_personalizacao", label: "em personalizaÃ§Ã£o" },
+  { value: "em_personalizacao", label: "em personalização" },
   { value: "publicado_definitivo", label: "publicado definitivo" },
   { value: "vendido", label: "vendido" },
   { value: "recusado", label: "recusado" },
@@ -89,12 +89,12 @@ const SALE_STATUS_OPTIONS: Array<{ value: GeneratedSiteStatus; label: string }> 
 const DELIVERY_ITEMS = [
   ["businessName", "nome final da empresa"],
   ["phone", "telefone/WhatsApp"],
-  ["address", "endereÃ§o"],
+  ["address", "endereço"],
   ["logo", "logo"],
   ["photos", "fotos"],
-  ["services", "serviÃ§os"],
+  ["services", "serviços"],
   ["colors", "cores"],
-  ["domain", "domÃ­nio prÃ³prio"],
+  ["domain", "domínio próprio"],
   ["social", "redes sociais"],
   ["payment", "forma de pagamento"],
 ] as const;
@@ -114,9 +114,9 @@ const SECTION_ORDER = [
 
 function questionsFor(lead: BusinessLead) {
   return [
-    `Quais serviÃ§os a ${lead.name} oferece?|O site destaca os principais serviÃ§os de ${lead.niche} e facilita o contato direto.`,
-    "Como entrar em contato?|Use o botÃ£o de WhatsApp para falar rapidamente com a empresa.",
-    "Onde fica a empresa?|A seÃ§Ã£o de localizaÃ§Ã£o mostra endereÃ§o e mapa com OpenStreetMap.",
+    `Quais serviços a ${lead.name} oferece?|O site destaca os principais serviços de ${lead.niche} e facilita o contato direto.`,
+    "Como entrar em contato?|Use o botão de WhatsApp para falar rapidamente com a empresa.",
+    "Onde fica a empresa?|A seção de localização mostra endereço e mapa com OpenStreetMap.",
   ].join("\n");
 }
 
@@ -133,13 +133,13 @@ function draftFromLead(lead: BusinessLead): SiteBuilderDraft {
     description: variation.description,
     services: variation.services.join("\n"),
     benefits: variation.benefits.join("\n"),
-    differentials: ["Atendimento prÃ¡tico", "ComunicaÃ§Ã£o rÃ¡pida", "PresenÃ§a online profissional"].join("\n"),
+    differentials: ["Atendimento prático", "Comunicação rápida", "Presença online profissional"].join("\n"),
     questions: questionsFor(lead),
     ctaText: variation.ctaText,
     ctaFinal: variation.ctaFinal,
     whatsappMessage: getInitialProspectingMessage(),
     seoTitle: `${lead.name} | ${lead.niche} em ${lead.city}`,
-    seoDescription: `${lead.name} em ${lead.city}. Veja serviÃ§os, localizaÃ§Ã£o e contato pelo WhatsApp.`,
+    seoDescription: `${lead.name} em ${lead.city}. Veja serviços, localização e contato pelo WhatsApp.`,
     phone: lead.phone ?? "",
     address: lead.address,
     primaryColor: variation.primaryColor,
@@ -209,13 +209,13 @@ function makeMessage(link: string) {
 }
 
 function makeSalesProposal(link: string, price: string) {
-  return `Oi, tudo bem? Esse Ã© o modelo de site que preparei para sua empresa:
+  return `Oi, tudo bem? Esse é o modelo de site que preparei para sua empresa:
 ${link}
 
-Se vocÃª gostar, eu posso deixar ele pronto com suas cores, WhatsApp, endereÃ§o, fotos, serviÃ§os e domÃ­nio prÃ³prio.
+Se você gostar, eu posso deixar ele pronto com suas cores, WhatsApp, endereço, fotos, serviços e domínio próprio.
 
-O valor para ativar e personalizar esse site Ã© R$${price || "___"}.
-Posso finalizar para vocÃª?`;
+O valor para ativar e personalizar esse site é R$${price || "___"}.
+Posso finalizar para você?`;
 }
 
 function readStoredLead(businessId: string) {
@@ -361,11 +361,11 @@ export function SiteBuilderApp({
         }),
       });
       const payload = (await response.json().catch(() => ({
-        error: "A resposta da IA veio em um formato invÃ¡lido. Tente novamente.",
+        error: "A resposta da IA veio em um formato inválido. Tente novamente.",
       }))) as GenerateLandingResponse;
 
       if (!response.ok || !payload.draft) {
-        throw new Error(payload.error ?? "NÃ£o foi possÃ­vel gerar o site agora. Tente novamente.");
+        throw new Error(payload.error ?? "Não foi possível gerar o site agora. Tente novamente.");
       }
 
       setDraft((current) => {
@@ -404,7 +404,7 @@ export function SiteBuilderApp({
       setError(
         generationError instanceof Error
           ? generationError.message
-          : "NÃ£o foi possÃ­vel gerar o site agora. Tente novamente.",
+          : "Não foi possível gerar o site agora. Tente novamente.",
       );
     } finally {
       setIsGeneratingAI(false);
@@ -457,7 +457,7 @@ export function SiteBuilderApp({
       const payload = (await response.json()) as { site?: GeneratedSite; error?: string };
 
       if (!response.ok || !payload.site) {
-        throw new Error(payload.error ?? "NÃ£o foi possÃ­vel publicar o site.");
+        throw new Error(payload.error ?? "Não foi possível publicar o site.");
       }
 
       setSavedSite(payload.site);
@@ -513,15 +513,60 @@ export function SiteBuilderApp({
     setDirty(true);
   }
 
+  function startManualSite() {
+    const manualId = `manual-${Date.now()}`;
+    const manualLead: BusinessLead = {
+      id: manualId,
+      source: "osm",
+      osmId: manualId,
+      osmType: "node",
+      name: "Empresa sem nome",
+      address: "",
+      phone: null,
+      email: null,
+      website: null,
+      category: "negócio local",
+      latitude: -14.235,
+      longitude: -51.9253,
+      osmUrl: "",
+      city: "Brasil",
+      state: "BR",
+      niche: "negócio local",
+      hasWebsite: false,
+      rawTags: {},
+    };
+
+    sessionStorage.setItem(`site-builder:${manualId}`, JSON.stringify(manualLead));
+    window.location.href = `/site-builder/${manualId}`;
+  }
+
   if (!lead || !draft || !renderData) {
     return (
       <main className="premium-shell grid min-h-screen place-items-center p-6 text-center">
-        <div className="premium-panel max-w-lg rounded-2xl p-8">
-          <h1 className="text-2xl font-black text-white">Lead nÃ£o encontrado</h1>
-          <p className="mt-3 text-[#95a7bd]">Volte ao mapa, escolha uma empresa e clique em Gerar Site.</p>
-          <Link className="mt-6 inline-flex h-11 items-center justify-center rounded-lg bg-[#6ee7ff] px-4 font-bold text-[#06101d]" href="/mapa">
-            Voltar ao mapa
-          </Link>
+        <div className="premium-panel max-w-xl rounded-2xl p-8">
+          <h1 className="text-2xl font-black text-white">Não conseguimos carregar esse lead.</h1>
+          <p className="mt-3 text-sm leading-6 text-[#95a7bd]">
+            O link pode ter expirado, o identificador pode estar inválido ou os dados temporários do lead não estão mais salvos neste navegador.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <Link className="inline-flex h-11 items-center justify-center rounded-lg bg-[#6ee7ff] px-4 font-bold text-[#06101d]" href="/mapa">
+              Voltar para busca de leads
+            </Link>
+            <button
+              className="inline-flex h-11 items-center justify-center rounded-lg border border-[#6ee7ff]/20 bg-white/5 px-4 font-bold text-[#dceeff] transition-colors hover:bg-white/10"
+              onClick={() => window.location.reload()}
+              type="button"
+            >
+              Tentar novamente
+            </button>
+            <button
+              className="inline-flex h-11 items-center justify-center rounded-lg border border-[#6ee7ff]/20 bg-white/5 px-4 font-bold text-[#dceeff] transition-colors hover:bg-white/10"
+              onClick={startManualSite}
+              type="button"
+            >
+              Gerar site manualmente
+            </button>
+          </div>
         </div>
       </main>
     );
@@ -540,12 +585,12 @@ export function SiteBuilderApp({
             <div>
               <p className="text-xs font-bold uppercase text-[#6ee7ff]">{mode === "ai" ? "Criador de site com IA" : "Editor de Site"}</p>
               <h1 className="text-lg font-black text-white">{lead.name}</h1>
-              <p className="text-xs text-[#95a7bd]">{lead.niche} Â· {lead.city} Â· {lead.source ?? "osm"}</p>
+              <p className="text-xs text-[#95a7bd]">{lead.niche} · {lead.city} · {lead.source ?? "osm"}</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-[#6ee7ff]/20 bg-white/5 px-3 py-2 text-xs font-bold text-[#dceeff]">
-              {dirty ? "alteraÃ§Ãµes nÃ£o salvas" : savedSite?.status ?? "rascunho"}
+              {dirty ? "alterações não salvas" : savedSite?.status ?? "rascunho"}
             </span>
             <button className="lead-action" onClick={() => setDirty(false)}>
               <Save className="size-4" />
@@ -557,11 +602,11 @@ export function SiteBuilderApp({
             </button>
             <button className="lead-action" onClick={() => setPreviewMode(previewMode === "desktop" ? "mobile" : "desktop")}>
               <Eye className="size-4" />
-              PrÃ©-visualizar
+              Pré-visualizar
             </button>
             <button className="lead-action border-[#6ee7ff]/32 bg-[#21d4fd] text-[#06101d]" disabled={isSaving} onClick={publishSite}>
               {isSaving ? <Loader2 className="size-4 animate-spin" /> : <FilePlus2 className="size-4" />}
-              Publicar link temporÃ¡rio
+              Publicar link temporário
             </button>
             <button className="lead-action" disabled={!publicLink} onClick={copyLink}>
               <Copy className="size-4" />
@@ -621,20 +666,20 @@ export function SiteBuilderApp({
           <h2 className="font-black text-white">Visual</h2>
           <div className="mt-3 grid gap-3">
             <Field label="Cor principal"><input className="field h-11" type="color" value={draft.primaryColor} onChange={(event) => update("primaryColor", event.target.value)} /></Field>
-            <Field label="Cor secundÃ¡ria"><input className="field h-11" type="color" value={draft.accentColor} onChange={(event) => update("accentColor", event.target.value)} /></Field>
+            <Field label="Cor secundária"><input className="field h-11" type="color" value={draft.accentColor} onChange={(event) => update("accentColor", event.target.value)} /></Field>
             <Field label="Tema">
               <select className="field" value={draft.visualStyle} onChange={(event) => update("visualStyle", event.target.value as LandingVisualStyle)}>
                 <option value="claro">Profissional claro</option>
                 <option value="escuro">Premium escuro</option>
                 <option value="minimalista">Minimalista</option>
-                <option value="gradiente">ConversÃ£o</option>
-                <option value="cartao">Local em cartÃµes</option>
+                <option value="gradiente">Conversão</option>
+                <option value="cartao">Local em cartões</option>
               </select>
             </Field>
-            <Field label="BotÃ£o">
+            <Field label="Botão">
               <select className="field" value={draft.buttonStyle} onChange={(event) => update("buttonStyle", event.target.value as LandingButtonStyle)}>
-                <option value="primary">PrimÃ¡rio</option>
-                <option value="secondary">SecundÃ¡rio</option>
+                <option value="primary">Primário</option>
+                <option value="secondary">Secundário</option>
                 <option value="whatsapp">WhatsApp</option>
                 <option value="premium">Premium neon</option>
               </select>
@@ -649,14 +694,14 @@ export function SiteBuilderApp({
           </div>
 
           <div className="premium-divider my-5" />
-          <h2 className="font-black text-white">SeÃ§Ãµes</h2>
+          <h2 className="font-black text-white">Seções</h2>
           <div className="mt-3 grid gap-2 text-sm text-[#dceeff]">
             <label className="flex items-center gap-2"><input type="checkbox" checked={draft.showAbout} onChange={(event) => update("showAbout", event.target.checked)} /> Sobre</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.showBenefits} onChange={(event) => update("showBenefits", event.target.checked)} /> BenefÃ­cios</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.showMap} onChange={(event) => update("showMap", event.target.checked)} /> LocalizaÃ§Ã£o</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.showFaq} onChange={(event) => update("showFaq", event.target.checked)} /> Perguntas rÃ¡pidas</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.showBenefits} onChange={(event) => update("showBenefits", event.target.checked)} /> Benefícios</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.showMap} onChange={(event) => update("showMap", event.target.checked)} /> Localização</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.showFaq} onChange={(event) => update("showFaq", event.target.checked)} /> Perguntas rápidas</label>
           </div>
-          <p className="mt-3 text-xs text-[#7f93aa]">Ordem atual: {SECTION_ORDER.join(" â†’ ")}</p>
+          <p className="mt-3 text-xs text-[#7f93aa]">Ordem atual: {SECTION_ORDER.join(" → ")}</p>
         </aside>
 
         <section className="premium-panel min-h-[70vh] rounded-2xl p-4">
@@ -676,8 +721,8 @@ export function SiteBuilderApp({
                 <Sparkles className="mx-auto size-10 text-[#6ee7ff]" />
                 <h2 className="mt-4 text-2xl font-black text-white">Pronto para criar o site</h2>
                 <p className="mt-3 text-sm leading-6 text-[#95a7bd]">
-                  Clique em Gerar site com IA para criar uma primeira versÃ£o profissional. Depois vocÃª poderÃ¡ editar textos,
-                  cores, seÃ§Ãµes, CTA e publicar o link.
+                  Clique em Gerar site com IA para criar uma primeira versão profissional. Depois você poderá editar textos,
+                  cores, seções, CTA e publicar o link.
                 </p>
                 <button
                   className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#6ee7ff]/30 bg-[#21d4fd] px-4 text-sm font-black text-[#06101d] disabled:opacity-60"
@@ -708,7 +753,7 @@ export function SiteBuilderApp({
                 <div className="mx-auto max-w-6xl rounded-2xl border border-[#d9ddd2] bg-white p-6 shadow-sm">
                   <h2 className="text-2xl font-black">Diferenciais</h2>
                   <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    {["Atendimento prÃ¡tico", "ComunicaÃ§Ã£o rÃ¡pida", "PresenÃ§a online profissional"].map((item) => (
+                    {["Atendimento prático", "Comunicação rápida", "Presença online profissional"].map((item) => (
                       <div key={item} className="rounded-xl bg-[#f8faf6] p-4 text-sm font-bold">{item}</div>
                     ))}
                   </div>
@@ -718,7 +763,7 @@ export function SiteBuilderApp({
               {draft.showFaq ? (
                 <section className="px-5 py-10 md:px-10">
                   <div className="mx-auto max-w-6xl rounded-2xl border border-[#d9ddd2] bg-white p-6 shadow-sm">
-                    <h2 className="text-2xl font-black">Perguntas rÃ¡pidas</h2>
+                    <h2 className="text-2xl font-black">Perguntas rápidas</h2>
                     <div className="mt-4 grid gap-3">
                       {faqs.map((faq) => (
                         <details key={faq.question} className="rounded-xl bg-[#f8faf6] p-4">
@@ -738,7 +783,7 @@ export function SiteBuilderApp({
         </section>
 
         <aside className="premium-panel scroll-stable max-h-[calc(100vh-96px)] overflow-y-auto rounded-2xl p-4">
-          <h2 className="font-black text-white">ConteÃºdo</h2>
+          <h2 className="font-black text-white">Conteúdo</h2>
           <div className="mt-3 grid gap-3">
             <Field label="Status da venda">
               <select className="field" value={draft.saleStatus} onChange={(event) => update("saleStatus", event.target.value as GeneratedSiteStatus)}>
@@ -750,20 +795,20 @@ export function SiteBuilderApp({
               </select>
             </Field>
             <Field label="Nome do site"><input className="field" value={draft.siteName} onChange={(event) => update("siteName", event.target.value)} /></Field>
-            <Field label="TÃ­tulo principal"><textarea className="field min-h-24" value={draft.title} onChange={(event) => update("title", event.target.value)} /></Field>
-            <Field label="SubtÃ­tulo"><textarea className="field min-h-24" value={draft.subtitle} onChange={(event) => update("subtitle", event.target.value)} /></Field>
+            <Field label="Título principal"><textarea className="field min-h-24" value={draft.title} onChange={(event) => update("title", event.target.value)} /></Field>
+            <Field label="Subtítulo"><textarea className="field min-h-24" value={draft.subtitle} onChange={(event) => update("subtitle", event.target.value)} /></Field>
             <Field label="Texto sobre"><textarea className="field min-h-32" value={draft.description} onChange={(event) => update("description", event.target.value)} /></Field>
-            <Field label="ServiÃ§os"><textarea className="field min-h-32" value={draft.services} onChange={(event) => update("services", event.target.value)} /></Field>
-            <Field label="BenefÃ­cios"><textarea className="field min-h-32" value={draft.benefits} onChange={(event) => update("benefits", event.target.value)} /></Field>
+            <Field label="Serviços"><textarea className="field min-h-32" value={draft.services} onChange={(event) => update("services", event.target.value)} /></Field>
+            <Field label="Benefícios"><textarea className="field min-h-32" value={draft.benefits} onChange={(event) => update("benefits", event.target.value)} /></Field>
             <Field label="Diferenciais"><textarea className="field min-h-32" value={draft.differentials} onChange={(event) => update("differentials", event.target.value)} /></Field>
             <Field label="Perguntas e respostas"><textarea className="field min-h-32" value={draft.questions} onChange={(event) => update("questions", event.target.value)} /></Field>
             <Field label="CTA principal"><input className="field" value={draft.ctaText} onChange={(event) => update("ctaText", event.target.value)} /></Field>
             <Field label="CTA final"><textarea className="field min-h-20" value={draft.ctaFinal} onChange={(event) => update("ctaFinal", event.target.value)} /></Field>
-            <Field label="Mensagem automÃ¡tica do WhatsApp"><textarea className="field min-h-24" value={draft.whatsappMessage} onChange={(event) => update("whatsappMessage", event.target.value)} /></Field>
-            <Field label="TÃ­tulo SEO"><input className="field" value={draft.seoTitle} onChange={(event) => update("seoTitle", event.target.value)} /></Field>
-            <Field label="DescriÃ§Ã£o SEO"><textarea className="field min-h-20" value={draft.seoDescription} onChange={(event) => update("seoDescription", event.target.value)} /></Field>
+            <Field label="Mensagem automática do WhatsApp"><textarea className="field min-h-24" value={draft.whatsappMessage} onChange={(event) => update("whatsappMessage", event.target.value)} /></Field>
+            <Field label="Título SEO"><input className="field" value={draft.seoTitle} onChange={(event) => update("seoTitle", event.target.value)} /></Field>
+            <Field label="Descrição SEO"><textarea className="field min-h-20" value={draft.seoDescription} onChange={(event) => update("seoDescription", event.target.value)} /></Field>
             <Field label="WhatsApp"><input className="field" value={draft.phone} onChange={(event) => update("phone", event.target.value)} /></Field>
-            <Field label="EndereÃ§o"><textarea className="field min-h-20" value={draft.address} onChange={(event) => update("address", event.target.value)} /></Field>
+            <Field label="Endereço"><textarea className="field min-h-20" value={draft.address} onChange={(event) => update("address", event.target.value)} /></Field>
           </div>
           <Field label="Valor para ativar e personalizar"><input className="field mt-3" placeholder="Ex: 497,00" value={draft.salePrice} onChange={(event) => update("salePrice", event.target.value)} /></Field>
 
@@ -777,31 +822,31 @@ export function SiteBuilderApp({
               </label>
             ))}
           </div>
-          <Field label="ObservaÃ§Ãµes"><textarea className="field mt-3 min-h-24" value={draft.deliveryNotes} onChange={(event) => update("deliveryNotes", event.target.value)} /></Field>
+          <Field label="Observações"><textarea className="field mt-3 min-h-24" value={draft.deliveryNotes} onChange={(event) => update("deliveryNotes", event.target.value)} /></Field>
 
           <div className="premium-divider my-5" />
-          <h2 className="font-black text-white">PublicaÃ§Ã£o final</h2>
+          <h2 className="font-black text-white">Publicação final</h2>
           <div className="mt-3 grid gap-3">
-            <Field label="Modo de publicaÃ§Ã£o">
+            <Field label="Modo de publicação">
               <select className="field" value={draft.finalPublishMode} onChange={(event) => update("finalPublishMode", event.target.value as SiteBuilderDraft["finalPublishMode"])}>
-                <option value="subdomain">manter no subdomÃ­nio do sistema</option>
-                <option value="custom_domain">conectar domÃ­nio prÃ³prio do cliente</option>
-                <option value="temporary_domain">usar domÃ­nio temporÃ¡rio</option>
+                <option value="subdomain">manter no subdomínio do sistema</option>
+                <option value="custom_domain">conectar domínio próprio do cliente</option>
+                <option value="temporary_domain">usar domínio temporário</option>
                 <option value="preview">deixar como preview</option>
               </select>
             </Field>
-            <Field label="DomÃ­nio prÃ³prio"><input className="field" placeholder="barbeariadojoao.com.br" value={draft.customDomain} onChange={(event) => update("customDomain", event.target.value)} /></Field>
+            <Field label="Domínio próprio"><input className="field" placeholder="barbeariadojoao.com.br" value={draft.customDomain} onChange={(event) => update("customDomain", event.target.value)} /></Field>
             <div className="rounded-lg border border-[#6ee7ff]/16 bg-white/5 p-3 text-xs leading-5 text-[#95a7bd]">
-              Para domÃ­nio prÃ³prio, configure o DNS apontando para a Vercel ou hospedagem usada no projeto.
+              Para domínio próprio, configure o DNS apontando para a Vercel ou hospedagem usada no projeto.
             </div>
           </div>
 
           {error ? <div className="mt-4 rounded-lg border border-[#f472b6]/35 bg-[#f472b6]/12 p-3 text-sm text-[#ffd4e8]">{error}</div> : null}
           {publicLink ? (
             <div className="mt-4 rounded-lg border border-[#6ee7ff]/20 bg-white/5 p-3 text-sm text-[#dceeff]">
-              <div className="font-bold text-white">Link temporÃ¡rio publicado</div>
+              <div className="font-bold text-white">Link temporário publicado</div>
               <div className="mt-2 break-all text-[#95a7bd]">{publicLink}</div>
-              {!whatsappUrl ? <div className="mt-2 text-[#ffd4e8]">Este lead nÃ£o possui telefone cadastrado. Copie a mensagem e envie manualmente.</div> : null}
+              {!whatsappUrl ? <div className="mt-2 text-[#ffd4e8]">Este lead não possui telefone cadastrado. Copie a mensagem e envie manualmente.</div> : null}
             </div>
           ) : null}
         </aside>

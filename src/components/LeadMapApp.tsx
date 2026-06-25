@@ -55,6 +55,8 @@ const CACHE_TTL_MS = 30 * 60 * 1000;
 const SEARCH_CACHE_PREFIX = "wl_search";
 const SAVED_LEADS_KEY = "wl_saved_leads";
 const ASSISTANT_MESSAGES_KEY = "wl_ai_assistant_messages";
+const SEARCH_PREFERENCES_KEY = "wl_search_preferences";
+const LEADS_PAGE_SIZE = 12;
 
 type SiteDraft = {
   templateType: LandingTemplateType;
@@ -93,6 +95,17 @@ type MapCenter = {
 type SavedLead = BusinessLead & {
   savedAt: string;
 };
+
+type SearchPreferences = {
+  selectedState: string;
+  selectedCity: string;
+  selectedNiche: string;
+  selectedNiches: string[];
+  radiusKm: number;
+  onlyWithoutSite: boolean;
+};
+
+type LeadSortOption = "sem_site" | "nome" | "proximos" | "avaliacao" | "mais_avaliacoes";
 
 type AssistantMessage = {
   id: string;
@@ -433,16 +446,24 @@ Você pode me pedir:
 
 export function LeadMapApp() {
   const router = useRouter();
-  const [selectedState, setSelectedState] = useState("SP");
-  const [selectedCity, setSelectedCity] = useState("São Paulo");
+  const [selectedState, setSelectedState] = useState("");
+  const [selectedCity, setSelectedCity] = useState("");
   const [selectedCityCoordinates, setSelectedCityCoordinates] = useState<MapCenter | null>(null);
   const [isLocatingCity, setIsLocatingCity] = useState(false);
-  const [selectedNiche, setSelectedNiche] = useState<(typeof NICHES)[number]>("barbearia");
+  const [selectedNiche, setSelectedNiche] = useState<string>("");
+  const [selectedNiches, setSelectedNiches] = useState<string[]>([]);
+  const [customNiche, setCustomNiche] = useState("");
   const [selectedProvider, setSelectedProvider] = useState<DataProviderSource>("osm");
   const [searchMode, setSearchMode] = useState<"city" | "map">("city");
   const [manualCenter, setManualCenter] = useState<MapCenter | null>(null);
   const [radiusKm, setRadiusKm] = useState(5);
   const [onlyWithoutSite, setOnlyWithoutSite] = useState(true);
+  const [onlyWithPhone, setOnlyWithPhone] = useState(false);
+  const [onlyWithAddress, setOnlyWithAddress] = useState(false);
+  const [leadSort, setLeadSort] = useState<LeadSortOption>("sem_site");
+  const [visibleLimit, setVisibleLimit] = useState(LEADS_PAGE_SIZE);
+  const [searchMessage, setSearchMessage] = useState("Escolha estado, cidade e nicho para começar.");
+  const [citySearch, setCitySearch] = useState("");
   const [leads, setLeads] = useState<BusinessLead[]>([]);
   const [selectedLead, setSelectedLead] = useState<BusinessLead | null>(null);
   const [searchesRemaining, setSearchesRemaining] = useState<number | null>(null);
@@ -461,15 +482,43 @@ export function LeadMapApp() {
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([]);
 
-  const state = useMemo(
-    () => STATES.find((item) => item.uf === selectedState) ?? STATES[0],
-    [selectedState],
-  );
+  const state = useMemo(() => STATES.find((item) => item.uf === selectedState) ?? null, [selectedState]);
 
-  const visibleLeads = useMemo(
-    () => leads.filter((lead) => (onlyWithoutSite ? !lead.hasWebsite : true)),
-    [leads, onlyWithoutSite],
-  );
+  const selectedNichesForSearch = useMemo(() => {
+    const custom = customNiche.trim();
+    return Array.from(new Set([...selectedNiches, ...(custom ? [custom] : [])].filter(Boolean)));
+  }, [customNiche, selectedNiches]);
+
+  const filteredCities = useMemo(() => {
+    const term = citySearch.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const cities = state?.cities ?? [];
+
+    if (!term) {
+      return cities;
+    }
+
+    return cities.filter((city) =>
+      city.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(term),
+    );
+  }, [citySearch, state?.cities]);
+
+  const visibleLeads = useMemo(() => {
+    const filtered = leads.filter((lead) => {
+      if (onlyWithoutSite && lead.hasWebsite) return false;
+      if (onlyWithPhone && !lead.phone) return false;
+      if (onlyWithAddress && !lead.address) return false;
+      return true;
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (leadSort === "nome") return a.name.localeCompare(b.name, "pt-BR");
+      if (leadSort === "sem_site") return Number(a.hasWebsite) - Number(b.hasWebsite) || a.name.localeCompare(b.name, "pt-BR");
+      if (leadSort === "proximos") return a.name.localeCompare(b.name, "pt-BR");
+      return a.name.localeCompare(b.name, "pt-BR");
+    });
+  }, [leads, leadSort, onlyWithAddress, onlyWithPhone, onlyWithoutSite]);
+
+  const displayedLeads = useMemo(() => visibleLeads.slice(0, visibleLimit), [visibleLeads, visibleLimit]);
 
   const totals = useMemo(
     () => ({
@@ -482,8 +531,34 @@ export function LeadMapApp() {
   useEffect(() => {
     setSavedLeads(safeReadJson<SavedLead[]>(SAVED_LEADS_KEY, []));
     setAssistantMessages(safeReadJson<AssistantMessage[]>(ASSISTANT_MESSAGES_KEY, []));
+    const preferences = safeReadJson<SearchPreferences | null>(SEARCH_PREFERENCES_KEY, null);
+
+    if (preferences) {
+      setSelectedState(preferences.selectedState ?? "");
+      setSelectedCity(preferences.selectedCity ?? "");
+      setSelectedNiche(preferences.selectedNiche ?? "");
+      setSelectedNiches(preferences.selectedNiches ?? []);
+      setRadiusKm(normalizeRadiusKm(preferences.radiusKm ?? 5));
+      setOnlyWithoutSite(Boolean(preferences.onlyWithoutSite));
+    }
+
     setStorageReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!storageReady) {
+      return;
+    }
+
+    safeWriteJson(SEARCH_PREFERENCES_KEY, {
+      selectedState,
+      selectedCity,
+      selectedNiche,
+      selectedNiches,
+      radiusKm,
+      onlyWithoutSite,
+    } satisfies SearchPreferences);
+  }, [onlyWithoutSite, radiusKm, selectedCity, selectedNiche, selectedNiches, selectedState, storageReady]);
 
   useEffect(() => {
     if (!storageReady) {
@@ -584,26 +659,45 @@ export function LeadMapApp() {
     };
   }, [locateCity, searchMode, selectedCity, selectedState]);
 
+  function addNiche(niche: string) {
+    const nextNiche = niche.trim();
+
+    if (!nextNiche || nextNiche === "Outro") {
+      return;
+    }
+
+    setSelectedNiche(nextNiche);
+    setSelectedNiches((current) => (current.includes(nextNiche) ? current : [...current, nextNiche]));
+    setCustomNiche("");
+  }
+
+  function removeNiche(niche: string) {
+    setSelectedNiches((current) => current.filter((item) => item !== niche));
+    setSelectedNiche((current) => (current === niche ? "" : current));
+  }
+
   async function runSearch(refresh = false) {
     setIsSearching(true);
     setError(null);
     setSelectedLead(null);
     setLastSearchWasLocalCache(false);
+    setVisibleLimit(LEADS_PAGE_SIZE);
 
     try {
       const cityName = selectedCity;
+      const nichesToSearch = selectedNichesForSearch;
 
-      if (!selectedNiche) {
-        throw new Error("Preencha a cidade e o nicho.");
+      if (!nichesToSearch.length) {
+        throw new Error("Escolha ou digite pelo menos um nicho.");
       }
 
       if (searchMode === "city" && !cityName) {
-        throw new Error("Preencha a cidade e o nicho.");
+        throw new Error("Escolha uma cidade antes de buscar.");
       }
 
       const exactCity =
         searchMode === "city"
-          ? state.cities.find((city) => city.name === cityName)
+          ? state?.cities.find((city) => city.name === cityName) ?? null
           : null;
 
       if (searchMode === "city" && !exactCity) {
@@ -611,12 +705,12 @@ export function LeadMapApp() {
       }
 
       const cacheKey =
-        searchMode === "city"
+        searchMode === "city" && nichesToSearch.length === 1
           ? makeSearchCacheKey({
               provider: selectedProvider,
               state: selectedState,
               city: exactCity?.name ?? cityName,
-              niche: selectedNiche,
+              niche: nichesToSearch[0],
               radiusKm: normalizeRadiusKm(radiusKm),
             })
           : null;
@@ -631,6 +725,7 @@ export function LeadMapApp() {
           setLastSearchWasLocalCache(true);
           setSiteHistory({});
           setActivePanel("results");
+          setSearchMessage(`Resultado em cache: encontramos ${cached.businesses.length} leads.`);
           return;
         }
       }
@@ -645,41 +740,72 @@ export function LeadMapApp() {
           : null;
 
       if (searchMode === "city" && !cityCoordinates) {
-        throw new Error("Não encontramos essa cidade. Verifique o nome.");
+        throw new Error("Não foi possível localizar essa cidade no mapa.");
       }
 
       if (searchMode === "map" && !manualCenter) {
         throw new Error("Clique no mapa para escolher uma área de busca.");
       }
 
-      const response = await fetch("/api/osm/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: selectedProvider,
-          searchType: searchMode,
-          state: searchMode === "city" ? selectedState : undefined,
-          city: searchMode === "city" ? exactCity?.name ?? cityName : undefined,
-          niche: selectedNiche,
-          radiusKm: normalizeRadiusKm(radiusKm),
-          centerLat: searchMode === "map" ? manualCenter?.lat : cityCoordinates?.lat,
-          centerLng: searchMode === "map" ? manualCenter?.lng : cityCoordinates?.lng,
-          refresh,
+      const placeName = searchMode === "city" ? `${exactCity?.name ?? cityName} - ${selectedState}` : "área selecionada";
+      setSearchMessage(`Buscando empresas em ${placeName}...`);
+
+      const responses = await Promise.all(
+        nichesToSearch.map(async (niche) => {
+          const response = await fetch("/api/osm/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              provider: selectedProvider,
+              searchType: searchMode,
+              state: searchMode === "city" ? selectedState : undefined,
+              city: searchMode === "city" ? exactCity?.name ?? cityName : undefined,
+              niche,
+              radiusKm: normalizeRadiusKm(radiusKm),
+              centerLat: searchMode === "map" ? manualCenter?.lat : cityCoordinates?.lat,
+              centerLng: searchMode === "map" ? manualCenter?.lng : cityCoordinates?.lng,
+              refresh,
+            }),
+          });
+
+          const payload = (await response.json()) as SearchResponse & { error?: string };
+
+          if (!response.ok) {
+            const message = payload.error ?? "Não foi possível buscar empresas agora.";
+            throw new Error(message.includes("demor") || message.includes("Timeout") ? "A busca demorou demais. Tente um raio menor." : message);
+          }
+
+          return payload;
         }),
-      });
+      );
 
-      const payload = (await response.json()) as SearchResponse & { error?: string };
+      const deduped = new Map<string, BusinessLead>();
 
-      if (!response.ok) {
-        const message = payload.error ?? "Não foi possível buscar empresas agora.";
-        throw new Error(message.includes("demor") || message.includes("Timeout") ? "A busca demorou demais. Tente um raio menor." : message);
+      for (const response of responses) {
+        for (const lead of response.businesses) {
+          deduped.set(leadKey(lead), lead);
+        }
       }
 
-      setLeads(payload.businesses);
-      setSearchesRemaining(payload.creditsRemaining);
-      setSource(payload.source);
+      const businesses = Array.from(deduped.values());
+      const firstPayload = responses[0];
+      const payload: SearchResponse = {
+        ...firstPayload,
+        totalResults: businesses.length,
+        totalWithoutWebsite: businesses.filter((business) => !business.hasWebsite).length,
+        businesses,
+      };
+
+      setLeads(businesses);
+      setSearchesRemaining(firstPayload.creditsRemaining);
+      setSource(firstPayload.source);
       setSiteHistory({});
       setActivePanel("results");
+      setSearchMessage(
+        businesses.length
+          ? `Encontramos ${businesses.length} leads em ${placeName}.`
+          : "Nenhum lead encontrado para esse filtro. Tente outro nicho, cidade ou raio.",
+      );
 
       if (cacheKey) {
         writeSearchCache(cacheKey, payload);
@@ -687,6 +813,7 @@ export function LeadMapApp() {
     } catch (searchError) {
       const message = searchError instanceof Error ? searchError.message : "Erro inesperado.";
       setError(message.includes("Failed to fetch") ? "Verifique sua conexão e tente novamente." : message);
+      setSearchMessage("Erro ao buscar dados. Tente novamente.");
     } finally {
       setIsSearching(false);
     }
@@ -968,12 +1095,13 @@ export function LeadMapApp() {
                     value={selectedState}
                     onChange={(event) => {
                       const nextState = event.target.value;
-                      const nextCities = STATES.find((item) => item.uf === nextState)?.cities ?? [];
                       setSelectedState(nextState);
-                      setSelectedCity(nextCities[0]?.name ?? "");
+                      setSelectedCity("");
+                      setCitySearch("");
                       setSelectedCityCoordinates(null);
                     }}
                   >
+                    <option value="">Selecione um estado</option>
                     {STATES.map((item) => (
                       <option key={item.uf} value={item.uf}>
                         {item.uf}
@@ -984,15 +1112,24 @@ export function LeadMapApp() {
 
                 <label className="grid gap-1 text-sm font-medium text-[#b8c7da]">
                   Cidade
+                  <input
+                    className="field h-10"
+                    disabled={!selectedState}
+                    placeholder={selectedState ? "Filtrar cidade na lista" : "Selecione um estado primeiro"}
+                    value={citySearch}
+                    onChange={(event) => setCitySearch(event.target.value)}
+                  />
                   <select
                     className="field h-11"
+                    disabled={!selectedState}
                     value={selectedCity}
                     onChange={(event) => {
                       setSelectedCity(event.target.value);
                       setSelectedCityCoordinates(null);
                     }}
                   >
-                    {state.cities.map((city) => (
+                    <option value="">Selecione uma cidade</option>
+                    {filteredCities.map((city) => (
                       <option key={city.ibgeCode} value={city.name}>
                         {city.name}
                       </option>
@@ -1024,8 +1161,9 @@ export function LeadMapApp() {
               <select
                 className="field h-11"
                 value={selectedNiche}
-                onChange={(event) => setSelectedNiche(event.target.value as (typeof NICHES)[number])}
+                onChange={(event) => addNiche(event.target.value)}
               >
+                <option value="">Adicionar nicho pronto</option>
                 {NICHES.map((niche) => {
                   return (
                     <option key={niche} value={niche}>
@@ -1033,7 +1171,47 @@ export function LeadMapApp() {
                     </option>
                   );
                 })}
+                <option value="Outro">Outro</option>
               </select>
+              <div className="flex gap-2">
+                <input
+                  className="field h-10 min-w-0 flex-1"
+                  placeholder="Digite um nicho ou segmento"
+                  value={customNiche}
+                  onChange={(event) => setCustomNiche(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addNiche(customNiche);
+                    }
+                  }}
+                />
+                <button
+                  className="h-10 rounded-lg border border-[#6ee7ff]/20 bg-white/5 px-3 text-xs font-bold text-[#dceeff] transition-colors hover:bg-white/10"
+                  type="button"
+                  onClick={() => addNiche(customNiche)}
+                >
+                  Add
+                </button>
+              </div>
+              {selectedNiches.length ? (
+                <div className="flex flex-wrap gap-1">
+                  {selectedNiches.map((niche) => (
+                    <button
+                      key={niche}
+                      className="inline-flex h-8 items-center gap-1 rounded-full border border-[#6ee7ff]/25 bg-[#6ee7ff]/10 px-3 text-xs font-bold text-[#dceeff] transition-colors hover:bg-[#6ee7ff]/18"
+                      type="button"
+                      onClick={() => removeNiche(niche)}
+                      title="Remover nicho"
+                    >
+                      {niche}
+                      <X className="size-3" />
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs font-medium text-[#8fa3ba]">Escolha um ou mais nichos.</span>
+              )}
             </label>
 
             <label className="grid gap-1 text-sm font-medium text-[#b8c7da]">
@@ -1147,6 +1325,9 @@ export function LeadMapApp() {
                 </button>
               </div>
             </div>
+            <p className="mt-3 rounded-lg border border-[#6ee7ff]/12 bg-white/5 px-3 py-2 text-sm font-medium text-[#dceeff]">
+              {searchMessage}
+            </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 className={`flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors ${
@@ -1159,6 +1340,35 @@ export function LeadMapApp() {
                 <SlidersHorizontal className="size-4" />
                 Somente sem site
               </button>
+              <button
+                className={`flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors ${
+                  onlyWithPhone
+                    ? "border-[#6ee7ff]/38 bg-[#6ee7ff]/14 text-[#dceeff]"
+                    : "border-[#6ee7ff]/20 bg-white/5 text-[#dceeff] hover:border-[#6ee7ff]/42 hover:bg-white/10"
+                }`}
+                onClick={() => setOnlyWithPhone((value) => !value)}
+              >
+                Com telefone
+              </button>
+              <button
+                className={`flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors ${
+                  onlyWithAddress
+                    ? "border-[#6ee7ff]/38 bg-[#6ee7ff]/14 text-[#dceeff]"
+                    : "border-[#6ee7ff]/20 bg-white/5 text-[#dceeff] hover:border-[#6ee7ff]/42 hover:bg-white/10"
+                }`}
+                onClick={() => setOnlyWithAddress((value) => !value)}
+              >
+                Com endereço
+              </button>
+              <select
+                className="h-9 rounded-lg border border-[#6ee7ff]/20 bg-[#07101f] px-3 text-xs font-semibold text-[#dceeff] outline-none transition-colors hover:border-[#6ee7ff]/42"
+                value={leadSort}
+                onChange={(event) => setLeadSort(event.target.value as LeadSortOption)}
+              >
+                <option value="sem_site">Ordenar: sem site primeiro</option>
+                <option value="nome">Ordenar: nome</option>
+                <option value="proximos">Ordenar: proximidade</option>
+              </select>
               {lastSearchWasLocalCache ? (
                 <button
                   className="flex h-9 items-center gap-2 rounded-lg border border-[#6ee7ff]/20 bg-white/5 px-3 text-xs font-semibold text-[#dceeff] transition-colors hover:bg-white/10"
@@ -1234,7 +1444,7 @@ export function LeadMapApp() {
               <LeadSkeletonList />
             ) : visibleLeads.length ? (
               <div className="grid gap-3">
-                {visibleLeads.map((lead) => {
+                {displayedLeads.map((lead) => {
                   const history = siteHistory[leadKey(lead)] ?? [];
                   const latestSite = history[0];
 
@@ -1262,6 +1472,14 @@ export function LeadMapApp() {
                     />
                   );
                 })}
+                {displayedLeads.length < visibleLeads.length ? (
+                  <button
+                    className="h-11 rounded-lg border border-[#6ee7ff]/20 bg-white/5 text-sm font-bold text-[#dceeff] transition-colors hover:bg-white/10"
+                    onClick={() => setVisibleLimit((current) => current + LEADS_PAGE_SIZE)}
+                  >
+                    Carregar mais leads ({visibleLeads.length - displayedLeads.length})
+                  </button>
+                ) : null}
               </div>
             ) : (
               <EmptyState title="Nenhum lead para exibir." description="Escolha cidade, nicho e raio, depois faça uma busca manual." />
