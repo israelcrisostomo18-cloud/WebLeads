@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { ArrowRight, Bot, MapPinned, MessageCircle, Search, Sparkles } from "lucide-react";
+import { ArrowRight, Bot, MapPinned, MessageCircle, Search, Sparkles, UsersRound } from "lucide-react";
 
 const benefits = [
   "Encontre empresas locais por cidade, nicho e raio.",
   "Veja tudo em um mapa interno com OpenStreetMap.",
   "Salve leads, copie contatos e organize sua prospecção.",
+  "Trabalhe listas fixas em lotes manuais de 10 leads.",
   "Gere landing pages profissionais com IA sem expor sua chave.",
 ];
 
@@ -46,6 +47,13 @@ export default function Home() {
               >
                 Como funciona
               </a>
+              <Link
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-[#6ee7ff]/22 bg-white/5 px-5 text-sm font-bold text-[#dceeff]"
+                href="/prospeccao-manual"
+              >
+                <UsersRound className="size-4" />
+                Prospecção Manual
+              </Link>
             </div>
           </div>
 

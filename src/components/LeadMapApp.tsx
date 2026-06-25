@@ -1,6 +1,7 @@
 "use client";
 
 import type * as Leaflet from "leaflet";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Building2,
@@ -18,6 +19,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Trash2,
+  UsersRound,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1057,6 +1059,13 @@ export function LeadMapApp() {
             >
               Selecionar no mapa
             </button>
+            <Link
+              className="inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-bold text-[#9fb3c8] transition-colors hover:bg-white/6 hover:text-white"
+              href="/prospeccao-manual"
+            >
+              <UsersRound className="size-4" />
+              Prospecção Manual
+            </Link>
           </div>
 
           <section
