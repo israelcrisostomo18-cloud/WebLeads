@@ -2,7 +2,7 @@
 
 import { ArrowLeft, Copy, ExternalLink, Eye, FilePlus2, Loader2, MessageCircle, Save, Send, Sparkles } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BenefitsSection,
   FinalCTA,
@@ -72,6 +72,14 @@ type GenerateLandingResponse = {
   diagnosticCode?: string;
   model?: string;
   source?: "openai" | "fallback";
+};
+
+type GenerateHtmlResponse = {
+  html?: string;
+  error?: string;
+  warning?: string;
+  model?: string;
+  source?: "claude" | "fallback";
 };
 
 const SALE_STATUS_OPTIONS: Array<{ value: GeneratedSiteStatus; label: string }> = [
@@ -271,6 +279,11 @@ export function SiteBuilderApp({
   const [savedSite, setSavedSite] = useState<GeneratedSite | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isGeneratingHtml, setIsGeneratingHtml] = useState(false);
+  const [generatedHtml, setGeneratedHtml] = useState("");
+  const [generatedHtmlSource, setGeneratedHtmlSource] = useState<GenerateHtmlResponse["source"] | null>(null);
+  const [generatedHtmlModel, setGeneratedHtmlModel] = useState("");
+  const [htmlCopied, setHtmlCopied] = useState(false);
   const [hasGeneratedPreview, setHasGeneratedPreview] = useState(mode !== "ai");
   const [dirty, setDirty] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -340,6 +353,54 @@ export function SiteBuilderApp({
     setHasGeneratedPreview(true);
     setDirty(true);
   }
+
+  async function generateCompleteHtmlWithAI() {
+    if (!lead) return;
+
+    setIsGeneratingHtml(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/generate-site-html", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lead }),
+      });
+      const payload = (await response.json().catch(() => ({
+        error: "A resposta da IA veio em um formato inválido. Tente novamente.",
+      }))) as GenerateHtmlResponse;
+
+      if (!response.ok || !payload.html) {
+        throw new Error(payload.error ?? "Não foi possível gerar o HTML agora.");
+      }
+
+      setGeneratedHtml(payload.html);
+      setGeneratedHtmlSource(payload.source ?? null);
+      setGeneratedHtmlModel(payload.model ?? "");
+      setHasGeneratedPreview(true);
+      setDirty(true);
+
+      if (payload.warning) {
+        setError(payload.warning);
+      }
+    } catch (htmlError) {
+      setError(
+        htmlError instanceof Error
+          ? htmlError.message
+          : "Não foi possível gerar a landing page agora. Tente novamente.",
+      );
+    } finally {
+      setIsGeneratingHtml(false);
+    }
+  }
+
+  useEffect(() => {
+    if (mode !== "ai" || !lead || generatedHtml || isGeneratingHtml) {
+      return;
+    }
+
+    void generateCompleteHtmlWithAI();
+  }, [generatedHtml, isGeneratingHtml, lead, mode]);
 
   async function generateSiteWithAI() {
     if (!lead || !draft) return;
@@ -483,6 +544,30 @@ export function SiteBuilderApp({
     window.setTimeout(() => setCopied(false), 1800);
   }
 
+  async function copyGeneratedHtml() {
+    if (!generatedHtml) return;
+    await navigator.clipboard.writeText(generatedHtml);
+    setHtmlCopied(true);
+    window.setTimeout(() => setHtmlCopied(false), 1800);
+  }
+
+  function downloadGeneratedHtml() {
+    if (!generatedHtml || !lead) return;
+    const slug = lead.name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "") || "site-gerado";
+    const blob = new Blob([generatedHtml], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${slug}.html`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function markAccepted() {
     update("saleStatus", "aceito");
 
@@ -596,9 +681,17 @@ export function SiteBuilderApp({
               <Save className="size-4" />
               Salvar rascunho
             </button>
-            <button className="lead-action border-[#c4b5fd]/35 bg-[#6366f1]/18 text-[#ecebff]" disabled={isGeneratingAI} onClick={generateSiteWithAI}>
-              {isGeneratingAI ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-              {isGeneratingAI ? "Gerando site..." : "Gerar site com IA"}
+            <button className="lead-action border-[#c4b5fd]/35 bg-[#6366f1]/18 text-[#ecebff]" disabled={isGeneratingHtml} onClick={generateCompleteHtmlWithAI}>
+              {isGeneratingHtml ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+              {isGeneratingHtml ? "Gerando HTML..." : "Gerar site com IA"}
+            </button>
+            <button className="lead-action" disabled={!generatedHtml} onClick={copyGeneratedHtml}>
+              <Copy className="size-4" />
+              {htmlCopied ? "HTML copiado" : "Copiar HTML"}
+            </button>
+            <button className="lead-action" disabled={!generatedHtml} onClick={downloadGeneratedHtml}>
+              <FilePlus2 className="size-4" />
+              Baixar HTML
             </button>
             <button className="lead-action" onClick={() => setPreviewMode(previewMode === "desktop" ? "mobile" : "desktop")}>
               <Eye className="size-4" />
@@ -715,7 +808,42 @@ export function SiteBuilderApp({
               ))}
             </div>
           </div>
-          {!hasGeneratedPreview ? (
+          {isGeneratingHtml ? (
+            <div className="grid min-h-[520px] place-items-center rounded-xl border border-dashed border-[#6ee7ff]/25 bg-[#09111f]/70 p-8 text-center">
+              <div className="max-w-md">
+                <Loader2 className="mx-auto size-10 animate-spin text-[#6ee7ff]" />
+                <h2 className="mt-4 text-2xl font-black text-white">Gerando site completo com IA...</h2>
+                <p className="mt-3 text-sm leading-6 text-[#95a7bd]">
+                  Estamos criando um HTML personalizado para {lead.name}, com textos, cores, serviços e contato.
+                </p>
+              </div>
+            </div>
+          ) : generatedHtml ? (
+            <div className="rounded-xl bg-[#e8edf5] p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#6ee7ff]/15 bg-[#07101f] p-3 text-xs text-[#dceeff]">
+                <span>
+                  HTML gerado por {generatedHtmlSource === "claude" ? "Claude" : "modelo fallback"}
+                  {generatedHtmlModel ? ` · ${generatedHtmlModel}` : ""}
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  <button className="lead-action" onClick={copyGeneratedHtml}>
+                    <Copy className="size-4" />
+                    {htmlCopied ? "HTML copiado" : "Copiar HTML"}
+                  </button>
+                  <button className="lead-action" onClick={downloadGeneratedHtml}>
+                    <FilePlus2 className="size-4" />
+                    Baixar HTML
+                  </button>
+                </div>
+              </div>
+              <iframe
+                className={`mx-auto min-h-[720px] w-full rounded-2xl border border-[#cbd5e1] bg-white shadow-2xl ${previewWidth}`}
+                sandbox=""
+                srcDoc={generatedHtml}
+                title={`Preview do site de ${lead.name}`}
+              />
+            </div>
+          ) : !hasGeneratedPreview ? (
             <div className="grid min-h-[520px] place-items-center rounded-xl border border-dashed border-[#6ee7ff]/25 bg-[#09111f]/70 p-8 text-center">
               <div className="max-w-md">
                 <Sparkles className="mx-auto size-10 text-[#6ee7ff]" />
@@ -726,11 +854,11 @@ export function SiteBuilderApp({
                 </p>
                 <button
                   className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#6ee7ff]/30 bg-[#21d4fd] px-4 text-sm font-black text-[#06101d] disabled:opacity-60"
-                  disabled={isGeneratingAI}
-                  onClick={generateSiteWithAI}
+                  disabled={isGeneratingHtml}
+                  onClick={generateCompleteHtmlWithAI}
                 >
-                  {isGeneratingAI ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-                  {isGeneratingAI ? "Gerando site profissional com IA..." : "Gerar site com IA"}
+                  {isGeneratingHtml ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                  {isGeneratingHtml ? "Gerando site profissional com IA..." : "Gerar site com IA"}
                 </button>
               </div>
             </div>
