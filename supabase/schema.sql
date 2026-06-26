@@ -217,6 +217,54 @@ create table if not exists public.usage_limits (
   check (searches_used >= 0)
 );
 
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'subscription_status_value') then
+    create type public.subscription_status_value as enum (
+      'active',
+      'pending',
+      'expired',
+      'canceled',
+      'refunded'
+    );
+  end if;
+end $$;
+
+create table if not exists public.subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.users(id) on delete set null,
+  email text not null,
+  name text,
+  plan_id text not null check (plan_id in ('monthly', 'quarterly', 'semiannual', 'annual')),
+  status public.subscription_status_value not null default 'pending',
+  starts_at timestamptz,
+  expires_at timestamptz,
+  payment_id text unique,
+  checkout_customer_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists subscriptions_email_status_idx
+on public.subscriptions (email, status, expires_at desc);
+
+create table if not exists public.payments (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.users(id) on delete set null,
+  email text not null,
+  plan_id text not null check (plan_id in ('monthly', 'quarterly', 'semiannual', 'annual')),
+  payment_id text not null unique,
+  checkout_customer_id text,
+  status text not null,
+  amount_cents integer not null default 0,
+  raw_payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists payments_email_idx
+on public.payments (email, created_at desc);
+
 alter table public.users enable row level security;
 alter table public.states enable row level security;
 alter table public.cities enable row level security;
@@ -226,6 +274,8 @@ alter table public.searches enable row level security;
 alter table public.lead_status enable row level security;
 alter table public.generated_sites enable row level security;
 alter table public.usage_limits enable row level security;
+alter table public.subscriptions enable row level security;
+alter table public.payments enable row level security;
 
 create policy "service role full access users" on public.users
 for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
@@ -252,4 +302,10 @@ create policy "service role full access generated_sites" on public.generated_sit
 for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
 
 create policy "service role full access usage_limits" on public.usage_limits
+for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
+
+create policy "service role full access subscriptions" on public.subscriptions
+for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
+
+create policy "service role full access payments" on public.payments
 for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
