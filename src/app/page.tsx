@@ -1,194 +1,170 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import {
   ArrowRight,
+  BarChart3,
   Bot,
+  Building2,
   CheckCircle2,
-  Crown,
-  MapPinned,
-  MessageCircle,
-  Search,
+  FileCode2,
+  MapPin,
+  Radar,
   Sparkles,
-  UsersRound,
+  Zap,
 } from "lucide-react";
 
-const benefits = [
-  {
-    title: "Mapa de leads interno",
-    text: "Pesquise por cidade, nicho e raio sem depender de abas externas para analisar os resultados.",
-  },
-  {
-    title: "Leads com prioridade comercial",
-    text: "Filtre empresas sem site, com telefone e endereço para focar nas oportunidades mais fáceis de abordar.",
-  },
-  {
-    title: "Site pronto para proposta",
-    text: "Gere uma landing page com IA, copie a proposta e envie o link para o cliente em poucos cliques.",
-  },
+const leadCards = [
+  { name: "Barbearia Prime", detail: "sem site", tone: "cyan" },
+  { name: "Studio Bella", detail: "WhatsApp ativo", tone: "violet" },
+  { name: "Oficina Central", detail: "site gerado", tone: "blue" },
 ];
 
-const steps = [
-  { icon: Search, title: "Busque", text: "Escolha estado, cidade, segmento e raio para encontrar negócios locais." },
-  { icon: MapPinned, title: "Analise", text: "Veja pinos, contatos, site, telefone e endereço dentro do WebLeads." },
-  { icon: Sparkles, title: "Crie", text: "Transforme um lead em uma landing page pronta para apresentação." },
-  { icon: MessageCircle, title: "Venda", text: "Copie mensagens profissionais e conduza o atendimento pelo WhatsApp." },
+const metrics = [
+  { label: "Leads encontrados", value: "248" },
+  { label: "Sem site", value: "71%" },
+  { label: "Sites criados", value: "36" },
 ];
 
-const plans = [
-  { name: "Mensal", price: "R$47,98", detail: "para testar e vender os primeiros sites" },
-  { name: "2 Meses", price: "R$67,89", detail: "mais tempo para validar cidades e nichos" },
-  { name: "6 Meses", price: "R$154,00", detail: "ideal para rotina constante de prospecção" },
-  { name: "Anual", price: "R$187,90", detail: "melhor custo-benefício", featured: true },
-];
+const buildings = Array.from({ length: 18 }, (_, index) => ({
+  id: index,
+  height: [26, 42, 34, 58, 48, 30, 66, 40, 54, 28, 46, 60, 36, 52, 32, 44, 64, 38][index],
+}));
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[#edf4f8] text-[#142033]">
-      <header className="border-b border-[#c9d8e3] bg-[#f7fbfd]/90 px-5 py-4 backdrop-blur md:px-10">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-          <Link className="flex items-center gap-2 text-base font-black text-[#15243a]" href="/">
-            <span className="grid size-10 place-items-center rounded-xl bg-[#155eef] text-white shadow-[0_12px_28px_rgba(21,94,239,0.24)]">
-              <Bot className="size-5" />
-            </span>
-            WebLeads
-          </Link>
-          <nav className="hidden items-center gap-5 text-sm font-bold text-[#52657a] md:flex">
-            <a className="hover:text-[#155eef]" href="#beneficios">Benefícios</a>
-            <a className="hover:text-[#155eef]" href="#como-funciona">Como funciona</a>
-            <a className="hover:text-[#155eef]" href="#planos">Planos</a>
-          </nav>
-          <Link
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#155eef] px-4 text-sm font-black text-white shadow-[0_12px_28px_rgba(21,94,239,0.24)] transition-colors hover:bg-[#0f49c8]"
-            href="/mapa"
-          >
-            Acessar mapa
-            <ArrowRight className="size-4" />
-          </Link>
-        </div>
-      </header>
+    <main className="home-3d-shell min-h-screen overflow-hidden text-white">
+      <section className="relative min-h-screen px-5 py-6 md:px-10">
+        <div className="home-3d-grid" />
+        <div className="home-3d-noise" />
 
-      <section className="px-5 py-12 md:px-10 md:py-16">
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1fr_0.9fr] lg:items-center">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#bdd0df] bg-white px-3 py-1 text-sm font-black text-[#155eef] shadow-sm">
+        <header className="relative z-20 mx-auto flex max-w-7xl items-center justify-between gap-4">
+          <Link className="flex items-center gap-3 font-black text-white" href="/">
+            <span className="grid size-11 place-items-center rounded-2xl border border-cyan-300/35 bg-cyan-300/12 shadow-[0_0_30px_rgba(34,211,238,0.24)]">
+              <Bot className="size-5 text-cyan-200" />
+            </span>
+            <span>WebLeads</span>
+          </Link>
+          <div className="hidden items-center gap-3 rounded-full border border-white/10 bg-white/6 px-4 py-2 text-xs font-bold text-slate-300 backdrop-blur md:flex">
+            <span className="size-2 rounded-full bg-emerald-300 shadow-[0_0_16px_rgba(110,231,183,0.8)]" />
+            Prospecção automatizada ativa
+          </div>
+        </header>
+
+        <div className="relative z-10 mx-auto grid min-h-[calc(100vh-92px)] max-w-7xl items-center gap-12 py-10 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/24 bg-cyan-300/10 px-4 py-2 text-sm font-black text-cyan-100 shadow-[0_0_36px_rgba(34,211,238,0.12)] backdrop-blur">
               <Sparkles className="size-4" />
-              Prospecção local com IA para vender sites
+              Plataforma SaaS para vender sites a negócios locais
             </div>
-            <h1 className="mt-6 max-w-4xl text-4xl font-black leading-[1.04] tracking-normal text-[#101828] md:text-6xl">
-              Encontre empresas, gere leads e crie oportunidades de venda em poucos cliques.
+
+            <h1 className="mt-7 text-4xl font-black leading-[0.98] tracking-normal text-white md:text-6xl xl:text-7xl">
+              Encontre empresas no mapa e gere sites profissionais em minutos
             </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-[#52657a]">
-              O WebLeads mostra negócios locais no mapa, ajuda a priorizar empresas sem site e cria modelos de páginas
-              profissionais para você transformar pesquisa em proposta.
+
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300 md:text-xl">
+              Prospere negócios locais, encontre oportunidades reais e crie páginas profissionais para apresentar aos
+              clientes com muito mais impacto.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#155eef] px-5 text-sm font-black text-white shadow-[0_16px_34px_rgba(21,94,239,0.26)] transition-colors hover:bg-[#0f49c8]"
+                className="home-3d-primary-button inline-flex h-14 items-center justify-center gap-3 rounded-2xl bg-cyan-300 px-6 text-sm font-black text-slate-950 shadow-[0_20px_56px_rgba(34,211,238,0.28)] transition-colors hover:bg-white"
                 href="/mapa"
               >
-                Acessar Mapa de Leads
-                <ArrowRight className="size-4" />
+                Acessar mapa de leads
+                <ArrowRight className="size-5" />
               </Link>
-              <a
-                className="inline-flex h-12 items-center justify-center rounded-xl border border-[#bdd0df] bg-white px-5 text-sm font-black text-[#15243a] transition-colors hover:bg-[#eef6fb]"
-                href="#planos"
-              >
-                Ver planos
-              </a>
-              <Link
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-[#bdd0df] bg-white px-5 text-sm font-black text-[#15243a] transition-colors hover:bg-[#eef6fb]"
-                href="/prospeccao-manual"
-              >
-                <UsersRound className="size-4" />
-                Prospecção manual
-              </Link>
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-[#c9d8e3] bg-white p-4 shadow-[0_24px_70px_rgba(28,52,84,0.14)]">
-            <div className="rounded-2xl bg-[#f1f7fb] p-4">
-              <div className="rounded-2xl border border-[#d8e4ec] bg-white p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-black text-[#155eef]">Busca ativa</p>
-                    <h2 className="mt-1 text-2xl font-black text-[#101828]">Barbearias sem site</h2>
-                  </div>
-                  <span className="rounded-full bg-[#dcfce7] px-3 py-1 text-xs font-black text-[#166534]">ao vivo</span>
-                </div>
-                <div className="mt-5 grid gap-3">
-                  {["12 leads sem site", "8 com WhatsApp", "3 sites gerados", "1 proposta pronta"].map((item) => (
-                    <div key={item} className="flex items-center gap-3 rounded-xl border border-[#d8e4ec] bg-[#f8fbfd] p-3 text-sm font-bold text-[#31465d]">
-                      <CheckCircle2 className="size-5 text-[#16a34a]" />
-                      {item}
-                    </div>
-                  ))}
-                </div>
+              <div className="inline-flex h-14 items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/6 px-5 text-sm font-bold text-slate-200 backdrop-blur">
+                <Radar className="size-5 text-violet-200" />
+                OSM, Foursquare e Google Places
               </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      <section id="beneficios" className="px-5 py-10 md:px-10">
-        <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-3">
-          {benefits.map((benefit) => (
-            <article key={benefit.title} className="rounded-2xl border border-[#c9d8e3] bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-black text-[#101828]">{benefit.title}</h2>
-              <p className="mt-3 text-sm leading-6 text-[#52657a]">{benefit.text}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section id="como-funciona" className="px-5 py-12 md:px-10">
-        <div className="mx-auto max-w-7xl">
-          <div className="max-w-2xl">
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-[#155eef]">Como funciona</p>
-            <h2 className="mt-3 text-3xl font-black text-[#101828] md:text-4xl">Da pesquisa ao contato comercial.</h2>
-          </div>
-          <div className="mt-8 grid gap-4 md:grid-cols-4">
-            {steps.map((step) => (
-              <article key={step.title} className="rounded-2xl border border-[#c9d8e3] bg-white p-5 shadow-sm">
-                <step.icon className="size-7 text-[#155eef]" />
-                <h3 className="mt-4 font-black text-[#101828]">{step.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#52657a]">{step.text}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="planos" className="px-5 py-12 md:px-10">
-        <div className="mx-auto max-w-7xl rounded-3xl border border-[#c9d8e3] bg-[#f7fbfd] p-5 shadow-sm md:p-8">
-          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-            <div>
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-[#155eef]">Planos</p>
-              <h2 className="mt-3 text-3xl font-black text-[#101828] md:text-4xl">Escolha o tempo de uso.</h2>
+            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+              {metrics.map((metric) => (
+                <div key={metric.label} className="rounded-2xl border border-white/10 bg-white/6 p-4 backdrop-blur">
+                  <div className="text-2xl font-black text-white">{metric.value}</div>
+                  <div className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">{metric.label}</div>
+                </div>
+              ))}
             </div>
-            <Link className="inline-flex h-11 items-center justify-center rounded-xl bg-[#101828] px-5 text-sm font-black text-white transition-colors hover:bg-[#243149]" href="/mapa">
-              Começar agora
-            </Link>
           </div>
-          <div className="mt-8 grid gap-4 md:grid-cols-4">
-            {plans.map((plan) => (
-              <article
-                key={plan.name}
-                className={`relative rounded-2xl border p-5 ${
-                  plan.featured
-                    ? "border-[#155eef] bg-[#155eef] text-white shadow-[0_18px_46px_rgba(21,94,239,0.22)]"
-                    : "border-[#c9d8e3] bg-white text-[#101828]"
-                }`}
-              >
-                {plan.featured ? (
-                  <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/16 px-3 py-1 text-xs font-black">
-                    <Crown className="size-3" />
-                    Melhor custo-benefício
+
+          <div className="home-3d-stage" aria-label="Visual 3D de automação de leads">
+            <div className="home-3d-scene">
+              <div className="home-3d-map">
+                <div className="home-3d-road home-3d-road-a" />
+                <div className="home-3d-road home-3d-road-b" />
+                <div className="home-3d-road home-3d-road-c" />
+                <div className="home-3d-buildings">
+                  {buildings.map((building) => (
+                    <span
+                      key={building.id}
+                      className="home-3d-building"
+                      style={{ "--building-height": `${building.height}px` } as CSSProperties}
+                    />
+                  ))}
+                </div>
+                <span className="home-3d-pin home-3d-pin-a"><MapPin className="size-5" /></span>
+                <span className="home-3d-pin home-3d-pin-b"><MapPin className="size-4" /></span>
+                <span className="home-3d-pin home-3d-pin-c"><MapPin className="size-4" /></span>
+                <span className="home-3d-signal home-3d-signal-a" />
+                <span className="home-3d-signal home-3d-signal-b" />
+                <span className="home-3d-signal home-3d-signal-c" />
+              </div>
+
+              <div className="home-3d-panel home-3d-panel-left">
+                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-cyan-200">
+                  <BarChart3 className="size-4" />
+                  Análise de leads
+                </div>
+                <div className="mt-4 space-y-3">
+                  <div className="home-3d-chart-line w-[92%]" />
+                  <div className="home-3d-chart-line w-[68%]" />
+                  <div className="home-3d-chart-line w-[82%]" />
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <span className="home-3d-bar h-10" />
+                  <span className="home-3d-bar h-16" />
+                  <span className="home-3d-bar h-12" />
+                </div>
+              </div>
+
+              <div className="home-3d-panel home-3d-panel-right">
+                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-violet-200">
+                  <FileCode2 className="size-4" />
+                  Site gerado
+                </div>
+                <div className="mt-4 rounded-xl border border-white/10 bg-white/8 p-3">
+                  <div className="h-3 w-2/3 rounded-full bg-cyan-200/80" />
+                  <div className="mt-3 h-2 w-full rounded-full bg-white/18" />
+                  <div className="mt-2 h-2 w-4/5 rounded-full bg-white/14" />
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <span className="h-12 rounded-lg bg-violet-300/20" />
+                    <span className="h-12 rounded-lg bg-cyan-300/20" />
                   </div>
-                ) : null}
-                <h3 className="text-lg font-black">{plan.name}</h3>
-                <p className="mt-4 text-3xl font-black">{plan.price}</p>
-                <p className={`mt-3 text-sm leading-6 ${plan.featured ? "text-[#dce9ff]" : "text-[#52657a]"}`}>{plan.detail}</p>
-              </article>
-            ))}
+                </div>
+              </div>
+
+              <div className="home-3d-lead-stack">
+                {leadCards.map((lead, index) => (
+                  <div key={lead.name} className={`home-3d-lead-card home-3d-lead-card-${index + 1}`}>
+                    <span className={`home-3d-lead-icon home-3d-lead-icon-${lead.tone}`}>
+                      <Building2 className="size-4" />
+                    </span>
+                    <span>
+                      <strong>{lead.name}</strong>
+                      <small>{lead.detail}</small>
+                    </span>
+                    <CheckCircle2 className="ml-auto size-4 text-emerald-300" />
+                  </div>
+                ))}
+              </div>
+
+              <div className="home-3d-flow home-3d-flow-a"><Zap className="size-4" /></div>
+              <div className="home-3d-flow home-3d-flow-b"><Zap className="size-4" /></div>
+              <div className="home-3d-flow home-3d-flow-c"><Zap className="size-4" /></div>
+            </div>
           </div>
         </div>
       </section>
