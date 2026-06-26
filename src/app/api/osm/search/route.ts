@@ -3,6 +3,12 @@ import { getCityCoordinates } from "@/lib/city-geocoding";
 import { getDataProvider, normalizedPlaceToLead } from "@/lib/dataProviders";
 import { leadToDatabaseRow, rowToLead } from "@/lib/openstreetmap";
 import { getDemoUserId, getSupabaseAdmin } from "@/lib/supabase";
+import {
+  canCreateLandingPage,
+  canViewLeadDetails,
+  getCurrentAccessUser,
+  type CurrentAccessUser,
+} from "@/lib/auth/permissions";
 import type { BusinessLead, DataProviderSource, SearchResponse } from "@/types";
 
 const CACHE_HOURS = 24;
@@ -22,6 +28,47 @@ type SearchBody = {
   centerLng?: number;
   refresh?: boolean;
 };
+
+type LeadSearchMode = "auto" | "public" | "private";
+
+function sanitizeLeadForPublic(lead: BusinessLead): BusinessLead {
+  return {
+    ...lead,
+    address: "",
+    phone: null,
+    email: null,
+    website: null,
+    hasWebsite: false,
+    osmUrl: "",
+    rawTags: {},
+  };
+}
+
+function buildAccessResponse(user: CurrentAccessUser, forceLimited = false): NonNullable<SearchResponse["access"]> {
+  const full = !forceLimited && canViewLeadDetails(user);
+
+  return {
+    mode: full ? "full" : "limited",
+    status: user.status,
+    canViewLeadDetails: full,
+    canCreateLandingPage: !forceLimited && canCreateLandingPage(user),
+  };
+}
+
+function applyAccessToResponse(response: SearchResponse, user: CurrentAccessUser, forceLimited = false): SearchResponse {
+  const access = buildAccessResponse(user, forceLimited);
+  const businesses = access.mode === "full" ? response.businesses : response.businesses.map(sanitizeLeadForPublic);
+
+  return {
+    ...response,
+    access,
+    totalWithoutWebsite:
+      access.mode === "full"
+        ? response.totalWithoutWebsite
+        : businesses.filter((business) => !business.hasWebsite).length,
+    businesses,
+  };
+}
 
 function normalizeRadiusKm(value: unknown) {
   const radius = typeof value === "string" ? Number(value.replace(",", ".")) : Number(value);
@@ -247,7 +294,16 @@ async function saveSearch(args: {
   });
 }
 
-export async function POST(request: Request) {
+export async function handleLeadSearch(request: Request, mode: LeadSearchMode = "auto") {
+  const accessUser = await getCurrentAccessUser();
+
+  if (mode === "private" && !canViewLeadDetails(accessUser)) {
+    return NextResponse.json(
+      { error: "Assinatura ativa necessaria para acessar dados completos." },
+      { status: 401 },
+    );
+  }
+
   const body = (await request.json()) as SearchBody;
   const provider = DATA_PROVIDER_IDS.includes(body.provider as DataProviderSource)
     ? (body.provider as DataProviderSource)
@@ -301,7 +357,7 @@ export async function POST(request: Request) {
         businesses: cached,
       };
 
-      return NextResponse.json(response);
+      return NextResponse.json(applyAccessToResponse(response, accessUser, mode === "public"));
     }
   }
 
@@ -381,5 +437,9 @@ export async function POST(request: Request) {
     businesses,
   };
 
-  return NextResponse.json(response);
+  return NextResponse.json(applyAccessToResponse(response, accessUser, mode === "public"));
+}
+
+export async function POST(request: Request) {
+  return handleLeadSearch(request, "auto");
 }

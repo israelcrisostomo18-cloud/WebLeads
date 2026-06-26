@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ACCESS_COOKIE_NAME, verifyAccessCookieValue } from "@/lib/auth/access";
 
-const PROTECTED_APP_PREFIXES = ["/mapa", "/prospeccao-manual", "/criar-site", "/site-builder", "/app", "/dashboard"];
+const PROTECTED_APP_PREFIXES = ["/prospeccao-manual", "/criar-site", "/site-builder", "/app", "/dashboard"];
 const PROTECTED_API_PREFIXES = [
-  "/api/osm",
+  "/api/leads/search/private",
   "/api/generate-landing",
   "/api/generate-site-html",
   "/api/generated-sites",
@@ -81,13 +81,12 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/mapa/:path*",
     "/prospeccao-manual/:path*",
     "/criar-site/:path*",
     "/site-builder/:path*",
     "/app/:path*",
     "/dashboard/:path*",
-    "/api/osm/:path*",
+    "/api/leads/search/private",
     "/api/generate-landing",
     "/api/generate-site-html",
     "/api/generated-sites/:path*",

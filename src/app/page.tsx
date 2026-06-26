@@ -56,11 +56,11 @@ const resources = [
 const faqs = [
   {
     question: "Preciso pagar para acessar o mapa?",
-    answer: "Sim. A landing e publica, mas a ferramenta de mapa fica bloqueada para quem nao tem assinatura ativa.",
+    answer: "Nao. Qualquer visitante pode explorar o mapa gratis. O plano completo desbloqueia telefone, endereco, WhatsApp e criacao de landing pages.",
   },
   {
     question: "Pix pendente libera acesso?",
-    answer: "Nao. O acesso so e liberado quando o Mercado Pago confirmar pagamento aprovado via webhook.",
+    answer: "Nao. O acesso completo so e liberado quando o parceiro de pagamento confirmar pagamento aprovado.",
   },
   {
     question: "O plano anual tem desconto real?",
@@ -121,15 +121,15 @@ export default async function Home() {
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link
                 className="home-3d-primary-button inline-flex h-14 items-center justify-center gap-3 rounded-2xl bg-cyan-300 px-6 text-sm font-black text-slate-950 shadow-[0_20px_56px_rgba(34,211,238,0.28)] transition-colors hover:bg-white"
-                href={hasActiveSubscription ? "/mapa" : "#planos"}
+                href="/mapa"
               >
-                {hasActiveSubscription ? "Entrar na ferramenta" : "Ver planos e acessar ferramenta"}
+                {hasActiveSubscription ? "Entrar na ferramenta" : "Explorar mapa gratuitamente"}
                 <ArrowRight className="size-5" />
               </Link>
-              <div className="inline-flex h-14 items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/6 px-5 text-sm font-bold text-slate-200 backdrop-blur">
+              <Link className="inline-flex h-14 items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/6 px-5 text-sm font-bold text-slate-200 backdrop-blur" href="#planos">
                 <Radar className="size-5 text-violet-200" />
-                OSM, Foursquare e Google Places
-              </div>
+                Ver planos
+              </Link>
             </div>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -275,7 +275,7 @@ export default async function Home() {
               <p className="text-sm font-black uppercase tracking-[0.18em] text-cyan-200">Planos e acesso</p>
               <h2 className="mt-3 max-w-3xl text-3xl font-black md:text-5xl">Escolha um plano para liberar a ferramenta.</h2>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
-                A compra abre o checkout do Mercado Pago. Depois da aprovacao, o webhook libera o email usado no pagamento.
+                Pagamento processado em ambiente seguro por parceiro de pagamento autorizado. Apos a confirmacao, seu acesso e liberado automaticamente.
               </p>
             </div>
             {hasActiveSubscription ? (

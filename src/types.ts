@@ -82,6 +82,12 @@ export type NormalizedPlace = {
 export type SearchResponse = {
   source: "cache" | "overpass" | DataProviderSource;
   provider: DataProviderSource;
+  access?: {
+    mode: "limited" | "full";
+    status: "visitor" | "aguardando_pagamento" | "ativo" | "vencido" | "cancelado";
+    canViewLeadDetails: boolean;
+    canCreateLandingPage: boolean;
+  };
   creditsRemaining: number | null;
   totalResults: number;
   totalWithoutWebsite: number;

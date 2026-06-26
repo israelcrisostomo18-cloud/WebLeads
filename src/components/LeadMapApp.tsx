@@ -10,6 +10,7 @@ import {
   FilePlus2,
   Layers3,
   Loader2,
+  LockKeyhole,
   MapPin,
   MessageCircle,
   RefreshCw,
@@ -108,6 +109,7 @@ type SearchPreferences = {
 };
 
 type LeadSortOption = "sem_site" | "nome" | "proximos" | "avaliacao" | "mais_avaliacoes";
+type AccessStatus = NonNullable<SearchResponse["access"]>["status"];
 
 type AssistantMessage = {
   id: string;
@@ -244,8 +246,9 @@ function makeSearchCacheKey(args: {
   city: string;
   niche: string;
   radiusKm: number;
+  accessMode: "limited" | "full";
 }) {
-  return `${SEARCH_CACHE_PREFIX}_${args.provider}_${args.niche}_${args.city}_${args.state}_${args.radiusKm}`
+  return `${SEARCH_CACHE_PREFIX}_${args.accessMode}_${args.provider}_${args.niche}_${args.city}_${args.state}_${args.radiusKm}`
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -520,8 +523,12 @@ export function LeadMapApp() {
   const [lastSearchWasLocalCache, setLastSearchWasLocalCache] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([]);
+  const [accessStatus, setAccessStatus] = useState<AccessStatus>("visitor");
+  const [hasFullAccess, setHasFullAccess] = useState(false);
+  const [unlockModalOpen, setUnlockModalOpen] = useState(false);
 
   const state = useMemo(() => STATES.find((item) => item.uf === selectedState) ?? null, [selectedState]);
+  const canCreateLanding = hasFullAccess;
 
   const selectedNichesForSearch = useMemo(() => {
     const custom = customNiche.trim();
@@ -614,6 +621,36 @@ export function LeadMapApp() {
 
     safeWriteJson(ASSISTANT_MESSAGES_KEY, assistantMessages.slice(-30));
   }, [assistantMessages, storageReady]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAccess() {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        const payload = (await response.json().catch(() => null)) as {
+          active?: boolean;
+          subscription?: { status?: AccessStatus } | null;
+        } | null;
+
+        if (!cancelled) {
+          setHasFullAccess(Boolean(payload?.active));
+          setAccessStatus(payload?.active ? "ativo" : payload?.subscription?.status ?? "visitor");
+        }
+      } catch {
+        if (!cancelled) {
+          setHasFullAccess(false);
+          setAccessStatus("visitor");
+        }
+      }
+    }
+
+    void loadAccess();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const assistantContext = useMemo<AssistantContext>(() => {
     const latestSite =
@@ -751,6 +788,7 @@ export function LeadMapApp() {
               city: exactCity?.name ?? cityName,
               niche: nichesToSearch[0],
               radiusKm: normalizeRadiusKm(radiusKm),
+              accessMode: hasFullAccess ? "full" : "limited",
             })
           : null;
 
@@ -791,7 +829,7 @@ export function LeadMapApp() {
 
       const responses = await Promise.all(
         nichesToSearch.map(async (niche) => {
-          const response = await fetch("/api/osm/search", {
+          const response = await fetch(hasFullAccess ? "/api/leads/search/private" : "/api/leads/search/public", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -828,6 +866,10 @@ export function LeadMapApp() {
 
       const businesses = Array.from(deduped.values());
       const firstPayload = responses[0];
+      if (firstPayload.access) {
+        setHasFullAccess(firstPayload.access.mode === "full");
+        setAccessStatus(firstPayload.access.status);
+      }
       const payload: SearchResponse = {
         ...firstPayload,
         totalResults: businesses.length,
@@ -859,6 +901,11 @@ export function LeadMapApp() {
   }
 
   async function fetchLeadSites(lead: BusinessLead) {
+    if (!hasFullAccess) {
+      promptUnlock();
+      return [];
+    }
+
     const key = leadKey(lead);
 
     try {
@@ -887,6 +934,11 @@ export function LeadMapApp() {
   }
 
   function openSiteBuilder(lead: BusinessLead) {
+    if (!canCreateLanding) {
+      promptUnlock();
+      return;
+    }
+
     const businessId = siteBuilderKey(lead);
     try {
       sessionStorage.setItem(`site-builder:${businessId}`, JSON.stringify(lead));
@@ -899,6 +951,11 @@ export function LeadMapApp() {
   }
 
   function openAiSiteCreator(lead: BusinessLead) {
+    if (!canCreateLanding) {
+      promptUnlock();
+      return;
+    }
+
     const businessId = siteBuilderKey(lead);
     try {
       sessionStorage.setItem(`site-builder:${businessId}`, JSON.stringify(lead));
@@ -911,6 +968,11 @@ export function LeadMapApp() {
   }
 
   async function openSiteEditor(lead: BusinessLead, site: GeneratedSite) {
+    if (!canCreateLanding) {
+      promptUnlock();
+      return;
+    }
+
     const variations = buildLandingVariations(lead);
     setGenerator({
       lead,
@@ -969,7 +1031,30 @@ export function LeadMapApp() {
     localStorage.removeItem(ASSISTANT_MESSAGES_KEY);
   }
 
+  function promptUnlock() {
+    setUnlockModalOpen(true);
+  }
+
+  function goToPlans() {
+    setUnlockModalOpen(false);
+    router.push("/#planos");
+  }
+
+  function togglePremiumFilter(setter: React.Dispatch<React.SetStateAction<boolean>>) {
+    if (!hasFullAccess) {
+      promptUnlock();
+      return;
+    }
+
+    setter((value) => !value);
+  }
+
   function saveLead(lead: BusinessLead) {
+    if (!hasFullAccess) {
+      promptUnlock();
+      return;
+    }
+
     setSavedLeads((current) => {
       if (current.some((saved) => leadKey(saved) === leadKey(lead))) {
         return current;
@@ -986,6 +1071,11 @@ export function LeadMapApp() {
   }
 
   function exportSavedLeads() {
+    if (!hasFullAccess) {
+      promptUnlock();
+      return;
+    }
+
     const date = new Date().toISOString().slice(0, 10);
     const filename = `webleads-${selectedNiche}-${selectedCity || "leads"}-${date}.csv`
       .toLowerCase()
@@ -1333,7 +1423,12 @@ export function LeadMapApp() {
             radiusKm={radiusKm}
             selectedLead={selectedLead}
             onManualCenterChange={setManualCenter}
-            onSelectLead={setSelectedLead}
+            onSelectLead={(lead) => {
+              setSelectedLead(lead);
+              if (!hasFullAccess) {
+                promptUnlock();
+              }
+            }}
           />
         </div>
 
@@ -1390,21 +1485,25 @@ export function LeadMapApp() {
                 className={`flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors ${
                   onlyWithPhone
                     ? "border-[#6ee7ff]/38 bg-[#6ee7ff]/14 text-[#dceeff]"
-                    : "border-[#6ee7ff]/20 bg-white/5 text-[#dceeff] hover:border-[#6ee7ff]/42 hover:bg-white/10"
+                    : hasFullAccess
+                      ? "border-[#6ee7ff]/20 bg-white/5 text-[#dceeff] hover:border-[#6ee7ff]/42 hover:bg-white/10"
+                      : "border-white/10 bg-white/5 text-[#95a7bd]"
                 }`}
-                onClick={() => setOnlyWithPhone((value) => !value)}
+                onClick={() => togglePremiumFilter(setOnlyWithPhone)}
               >
-                Com telefone
+                {hasFullAccess ? "Com telefone" : "Telefone bloqueado"}
               </button>
               <button
                 className={`flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors ${
                   onlyWithAddress
                     ? "border-[#6ee7ff]/38 bg-[#6ee7ff]/14 text-[#dceeff]"
-                    : "border-[#6ee7ff]/20 bg-white/5 text-[#dceeff] hover:border-[#6ee7ff]/42 hover:bg-white/10"
+                    : hasFullAccess
+                      ? "border-[#6ee7ff]/20 bg-white/5 text-[#dceeff] hover:border-[#6ee7ff]/42 hover:bg-white/10"
+                      : "border-white/10 bg-white/5 text-[#95a7bd]"
                 }`}
-                onClick={() => setOnlyWithAddress((value) => !value)}
+                onClick={() => togglePremiumFilter(setOnlyWithAddress)}
               >
-                Com endereço
+                {hasFullAccess ? "Com endereço" : "Endereço bloqueado"}
               </button>
               <select
                 className="h-9 rounded-lg border border-[#6ee7ff]/20 bg-[#07101f] px-3 text-xs font-semibold text-[#dceeff] outline-none transition-colors hover:border-[#6ee7ff]/42"
@@ -1457,8 +1556,13 @@ export function LeadMapApp() {
                   </button>
                 </div>
                 <div className="mt-3 grid gap-2 text-xs">
-                  <div><strong>Telefone:</strong> {selectedLead.phone ?? "Não disponível"}</div>
-                  <div><strong>Endereço:</strong> {selectedLead.address || "Não informado"}</div>
+                  <div><strong>Telefone:</strong> {hasFullAccess ? selectedLead.phone ?? "Telefone não disponível" : "🔒 Disponível no plano completo"}</div>
+                  <div><strong>Endereço:</strong> {hasFullAccess ? selectedLead.address || "Não informado" : "🔒 Disponível no plano completo"}</div>
+                  {!hasFullAccess ? (
+                    <button className="mt-1 h-10 rounded-lg bg-[#6ee7ff] text-sm font-black text-[#06101d]" onClick={promptUnlock}>
+                      Desbloquear dados completos
+                    </button>
+                  ) : null}
                   <div><strong>Coordenadas:</strong> {selectedLead.latitude.toFixed(6)}, {selectedLead.longitude.toFixed(6)}</div>
                 </div>
               </div>
@@ -1507,6 +1611,9 @@ export function LeadMapApp() {
                         void fetchLeadSites(lead);
                       }}
                       generatingAI={generatingLandingKey === leadKey(lead)}
+                      canViewDetails={hasFullAccess}
+                      canCreateLanding={canCreateLanding}
+                      onUnlock={promptUnlock}
                       onGenerateAI={() => openAiSiteCreator(lead)}
                       onGenerate={() => openSiteBuilder(lead)}
                       onModels={() => openSiteBuilder(lead)}
@@ -1546,6 +1653,60 @@ export function LeadMapApp() {
           onSave={saveGeneratedSite}
           onCopy={(key, text) => copyText(key, text)}
         />
+      ) : null}
+
+      {!hasFullAccess ? (
+        <button
+          className="fixed bottom-5 left-1/2 z-[600] flex h-12 -translate-x-1/2 items-center gap-2 rounded-full border border-[#6ee7ff]/30 bg-[#21d4fd] px-5 text-sm font-black text-[#06101d] shadow-[0_18px_60px_rgba(33,212,253,0.28)] transition-colors hover:bg-[#6ee7ff]"
+          onClick={promptUnlock}
+        >
+          <LockKeyhole className="size-4" />
+          Desbloquear dados completos
+        </button>
+      ) : null}
+
+      {unlockModalOpen ? (
+        <div className="fixed inset-0 z-[800] grid place-items-center bg-[#030711]/78 px-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <div className="w-full max-w-lg rounded-2xl border border-[#6ee7ff]/24 bg-[linear-gradient(145deg,rgba(11,18,32,0.98),rgba(16,24,44,0.98))] p-6 shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
+            <div className="flex items-start justify-between gap-4">
+              <div className="grid size-12 place-items-center rounded-xl border border-[#6ee7ff]/25 bg-[#6ee7ff]/12 text-[#b8f6ff]">
+                <LockKeyhole className="size-6" />
+              </div>
+              <button
+                className="grid size-9 place-items-center rounded-lg border border-white/10 bg-white/5 text-[#dceeff] transition-colors hover:bg-white/10"
+                onClick={() => setUnlockModalOpen(false)}
+                aria-label="Fechar"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <h2 className="mt-5 text-2xl font-black leading-tight text-white">
+              Desbloqueie os dados completos dos leads
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-[#dceeff]">
+              Encontramos empresas prontas para prospecção. Desbloqueie telefone, WhatsApp, endereço completo e criação de landing page para começar a vender.
+            </p>
+            <div className="mt-5 grid gap-2 text-sm text-[#dceeff]">
+              <div className="rounded-lg border border-white/10 bg-white/5 p-3">WhatsApp: 🔒 Disponível no plano completo</div>
+              <div className="rounded-lg border border-white/10 bg-white/5 p-3">Endereço: 🔒 Disponível no plano completo</div>
+              <div className="rounded-lg border border-white/10 bg-white/5 p-3">Criar landing page: 🔒 Disponível no plano completo</div>
+            </div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                className="h-11 rounded-xl bg-[#21d4fd] px-4 text-sm font-black text-[#06101d] transition-colors hover:bg-[#6ee7ff]"
+                onClick={goToPlans}
+              >
+                Desbloquear acesso completo
+              </button>
+              <button
+                className="h-11 rounded-xl border border-[#6ee7ff]/22 bg-white/5 px-4 text-sm font-bold text-[#dceeff] transition-colors hover:bg-white/10"
+                onClick={() => setUnlockModalOpen(false)}
+              >
+                Continuar explorando grátis
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       <AIAssistantWidget
@@ -2030,6 +2191,9 @@ function LeadCard({
   history,
   copiedKey,
   generatingAI,
+  canViewDetails,
+  canCreateLanding,
+  onUnlock,
   onSelect,
   onGenerateAI,
   onGenerate,
@@ -2046,6 +2210,9 @@ function LeadCard({
   history: GeneratedSite[];
   copiedKey: string | null;
   generatingAI: boolean;
+  canViewDetails: boolean;
+  canCreateLanding: boolean;
+  onUnlock: () => void;
   onSelect: () => void;
   onGenerateAI: () => void;
   onGenerate: () => void;
@@ -2058,6 +2225,7 @@ function LeadCard({
 }) {
   const message = latestSite?.whatsappMessage ?? WHATSAPP_MESSAGE;
   const whatsappUrl = makeLeadWhatsappUrl(lead.phone, message);
+  const lockedLabel = "🔒 Disponível no plano completo";
   const leadDetails = [
     lead.name,
     lead.address ? `Endereço: ${lead.address}` : null,
@@ -2067,6 +2235,62 @@ function LeadCard({
     `Nicho: ${lead.niche}`,
     `Coordenadas: ${lead.latitude.toFixed(6)}, ${lead.longitude.toFixed(6)}`,
   ].filter(Boolean).join("\n");
+
+  if (!canViewDetails) {
+    return (
+      <article
+        className={`min-h-[236px] rounded-xl border p-4 transition-colors ${
+          selected
+            ? "premium-card premium-card-selected"
+            : "border-[#6ee7ff]/18 bg-[linear-gradient(145deg,rgba(13,20,35,0.9),rgba(10,15,28,0.78))] shadow-[0_14px_38px_rgba(0,0,0,0.3)]"
+        }`}
+        onClick={() => {
+          onSelect();
+          onUnlock();
+        }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-white">{lead.name}</h3>
+            <p className="mt-1 text-xs font-medium text-[#6ee7ff]">{lead.city} · {lead.category ?? lead.niche}</p>
+          </div>
+          <span className="shrink-0 rounded-md border border-[#6ee7ff]/24 bg-[#6ee7ff]/10 px-2 py-1 text-xs font-bold text-[#b8f6ff]">
+            VISITANTE
+          </span>
+        </div>
+
+        <div className="mt-3 grid gap-2 text-xs text-[#dceeff]">
+          <div className="rounded-lg border border-white/10 bg-white/5 p-2"><strong>WhatsApp:</strong> {lockedLabel}</div>
+          <div className="rounded-lg border border-white/10 bg-white/5 p-2"><strong>Endereço:</strong> {lockedLabel}</div>
+          <div className="rounded-lg border border-white/10 bg-white/5 p-2"><strong>Site:</strong> {lockedLabel}</div>
+          <div className="rounded-lg border border-white/10 bg-white/5 p-2"><strong>Criar landing page:</strong> {lockedLabel}</div>
+        </div>
+
+        <div className="mt-3 rounded-lg border border-[#6ee7ff]/20 bg-[#6ee7ff]/10 p-3 text-xs font-bold leading-5 text-[#dceeff]">
+          Encontramos esta empresa no mapa. Desbloqueie telefone, WhatsApp, endereço completo e criação de landing page para começar a vender.
+        </div>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <button className="lead-action border-[#6ee7ff]/32 bg-[#21d4fd] text-[#06101d]" onClick={(event) => { event.stopPropagation(); onUnlock(); }}>
+            <LockKeyhole className="size-4" />
+            Desbloquear dados
+          </button>
+          <button className="lead-action" onClick={(event) => { event.stopPropagation(); onSelect(); }}>
+            <MapPin className="size-4" />
+            Ver no mapa
+          </button>
+          <button className="lead-action" onClick={(event) => { event.stopPropagation(); onUnlock(); }}>
+            <LockKeyhole className="size-4" />
+            Criar landing page
+          </button>
+          <button className="lead-action" onClick={(event) => { event.stopPropagation(); void onCopy(`lead-free-${leadKey(lead)}`, lead.name); }}>
+            <Copy className="size-4" />
+            {copiedKey === `lead-free-${leadKey(lead)}` ? "Nome copiado" : "Copiar nome"}
+          </button>
+        </div>
+      </article>
+    );
+  }
 
   return (
     <article
